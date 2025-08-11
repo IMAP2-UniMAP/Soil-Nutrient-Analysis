@@ -10,7 +10,71 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
     <style>
-        #map { height: 500px; position: relative; }
+        body {
+            margin: 0;
+            background-color: #fff;
+        }
+
+        /* Header Bar with Centered Logo */
+        .header-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(90deg, #28a745, #218838);
+            padding: 12px 0;
+            z-index: 2000;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .soilytic-logo {
+            font-weight: 900;
+            font-size: 2rem;
+            letter-spacing: 2px;
+            color: white;
+        }
+
+        /* Page Title below header */
+        .page-title {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 80px; /* space for fixed header */
+            margin-bottom: 20px;
+        }
+
+        #map { 
+            height: 500px; 
+            position: relative; 
+        }
+
+        /* Locate Button Styling */
+        .locate-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .locate-btn:hover {
+            background: #f0f0f0;
+        }
+
         .table-container {
             max-height: 300px;
             overflow-y: auto;
@@ -25,19 +89,9 @@
             color: #155724;
             font-weight: bold;
         }
-        .page-title {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
         .map-legend {
             position: absolute;
-            bottom: 10px;
+            bottom: 70px;
             left: 10px;
             background: white;
             padding: 8px 12px;
@@ -58,14 +112,28 @@
         .legend-blue { background-image: url('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png'); }
     </style>
 </head>
-<body class="container py-4 bg-white text-dark">
+<body class="container-fluid py-4 bg-white text-dark">
+
+    <!-- Fixed Header with Logo -->
+    <div class="header-bar">
+        <div class="soilytic-logo">SOILYTIC</div>
+    </div>
+
+    <!-- Title -->
     <h2 class="page-title">Soil Nutrient Analysis</h2>
 
+    <!-- Map -->
     <div id="map">
+        <!-- Map Legend -->
         <div class="map-legend">
             <div><i class="legend-green"></i> Latest Location</div>
             <div><i class="legend-blue"></i> Recorded Point</div>
         </div>
+
+        <!-- Locate Button -->
+        <button id="locateBtn" class="locate-btn" title="Center on Location">
+            ➤
+        </button>
     </div>
 
     <!-- Timestamp Display -->
@@ -181,13 +249,9 @@
                 ⏰ <b>Time:</b> ${malaysiaTimeStr}
             `);
 
-            map.setView([lat, lng], map.getZoom());
-
             document.getElementById('timestampText').innerText = `🕒 Last update: ${malaysiaTimeStr}`;
 
-            window.currentData = {
-                lat, lng, moisture, ph, n, p, k, temp, malaysiaTimeStr
-            };
+            window.currentData = { lat, lng, moisture, ph, n, p, k, temp, malaysiaTimeStr };
         }
 
         document.getElementById('recordBtn').addEventListener('click', () => {
@@ -245,6 +309,13 @@
             recordedMarkers = [];
             polyline.setLatLngs([]);
             document.getElementById('recordTableBody').innerHTML = '';
+        });
+
+        // Locate Button Functionality
+        document.getElementById('locateBtn').addEventListener('click', () => {
+            if (window.currentData) {
+                map.setView([window.currentData.lat, window.currentData.lng], 18, { animate: true });
+            }
         });
 
         fetchThingSpeakData();
