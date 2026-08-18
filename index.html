@@ -1,325 +1,3494 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Soil Nutrient Analysis</title>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Leaflet & Bootstrap CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>SOILYTIC | Soil Analysis Dashboard</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body {
-            margin: 0;
-            background-color: #fff;
+        * {
+            box-sizing: border-box;
         }
 
-        /* Header Bar with Centered Logo */
-        .header-bar {
+        :root {
+            --green: #22c55e;
+            --green-dark: #16a34a;
+            --green-soft: #ecfdf3;
+            --green-border: #bbf7d0;
+            --sidebar: #0f172a;
+            --sidebar-hover: #162033;
+            --sidebar-text: #94a3b8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --background: #f6f8fb;
+            --panel: rgba(255,255,255,0.92);
+            --panel-solid: #ffffff;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --blue: #3b82f6;
+            --shadow-sm: 0 4px 14px rgba(15,23,42,0.06);
+            --shadow-md: 0 12px 30px rgba(15,23,42,0.08);
+            --radius: 16px;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top right, rgba(34,197,94,0.08), transparent 30%),
+                var(--background);
+            color: var(--text);
+        }
+
+        /* =====================================================
+           LEFT SIDEBAR
+        ===================================================== */
+
+        .sidebar {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
+            width: 240px;
+            height: 100vh;
+            background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+            color: white;
+            z-index: 2000;
+            box-shadow: 12px 0 30px rgba(15,23,42,0.10);
+        }
+
+        .logo-area {
+            height: 130px;
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(90deg, #28a745, #218838);
-            padding: 12px 0;
-            z-index: 2000;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .soilytic-logo {
-            font-weight: 900;
-            font-size: 2rem;
+
+        .logo {
+            font-size: 30px;
+            font-weight: 800;
             letter-spacing: 2px;
+            color: #4ade80;
+            text-align: center;
+        }
+
+        .logo-subtitle {
+            margin-top: 5px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--sidebar-text);
+            text-align: center;
+        }
+
+        .menu {
+            padding-top: 20px;
+        }
+
+        .menu-item {
+            width: 100%;
+            height: 58px;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border: 0;
+            background: transparent;
+            transition: 0.2s;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .menu-item i {
+            width: 35px;
+            font-size: 17px;
+        }
+
+        .menu-item:hover {
+            background: var(--sidebar-hover);
             color: white;
         }
 
-        /* Page Title below header */
-        .page-title {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 15px;
-            border-radius: 8px;
+        .menu-item.active {
+            background: rgba(255,255,255,0.06);
+            color: #4ade80;
+            border-left: 4px solid #4ade80;
+        }
+
+        .sidebar-bottom {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding: 18px;
             text-align: center;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-top: 80px; /* space for fixed header */
+            font-size: 12px;
+            color: var(--muted);
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* =====================================================
+           MAIN AREA
+        ===================================================== */
+
+        .main {
+            margin-left: 240px;
+            padding: 28px 32px;
+            min-height: 100vh;
+        }
+
+        /*
+         * Main Dashboard is designed to fit the map and all
+         * six live soil readings in the first screen on a
+         * normal desktop display. The map becomes shorter
+         * on the dashboard only; other pages keep their
+         * original map height.
+         */
+        #dashboardPage #mainMap {
+            height: min(48vh, 460px);
+            min-height: 300px;
+        }
+
+        #dashboardPage .data-card {
+            min-height: 105px;
+            padding: 14px 16px;
+        }
+
+        #dashboardPage .card-value {
+            margin-top: 7px;
+            font-size: 23px;
+        }
+
+        #dashboardPage .card-icon {
+            top: 22px;
+            right: 15px;
+            font-size: 23px;
+        }
+
+        #dashboardPage .live-readings {
+            margin-top: 16px;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn .22s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* =====================================================
+           TOP HEADER
+        ===================================================== */
+
+        .topbar {
+            min-height: 65px;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 0 22px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(226,232,240,0.9);
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .dashboard-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        .dashboard-title i {
+            color: var(--green);
+            margin-right: 8px;
+        }
+
+        .topbar-spacer {
+            flex: 1;
+        }
+
+        .update-time {
+            font-size: 12px;
+            color: #777;
+            white-space: nowrap;
+        }
+
+        .update-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            background: var(--green);
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .header-status-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-light {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .status-chip.online {
+            background: #ecfdf3;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        .status-chip.online .status-light { background: #22c55e; }
+
+        .status-chip.warning {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #92400e;
+        }
+
+        .status-chip.warning .status-light { background: #f59e0b; }
+
+        .status-chip.offline {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .status-chip.offline .status-light { background: #ef4444; }
+
+        .map-shell { position: relative; }
+
+        .map-summary {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 900;
+            width: min(310px, calc(100% - 28px));
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(15,23,42,0.88);
+            color: white;
+            box-shadow: 0 12px 30px rgba(15,23,42,0.22);
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+        }
+
+        .map-summary-title {
+            margin-bottom: 7px;
+            color: #bbf7d0;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .map-summary-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 5px 10px;
+            font-size: 11px;
+        }
+
+        .map-summary-label { color: #cbd5e1; }
+        .map-summary-value { text-align: right; font-weight: 700; }
+
+        .filter-bar {
+            display: flex;
+            align-items: end;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .filter-field { min-width: 190px; flex: 1; }
+
+        .filter-field label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .filter-field input {
+            width: 100%;
+            height: 38px;
+            padding: 0 11px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            font-size: 12px;
+        }
+
+        .reset-filter-btn {
+            min-height: 38px;
+            padding: 0 13px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .toast-stack {
+            position: fixed;
+            top: 86px;
+            right: 24px;
+            z-index: 5000;
+            width: min(360px, calc(100vw - 32px));
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .app-toast {
+            display: flex;
+            gap: 10px;
+            padding: 13px 14px;
+            border: 1px solid var(--border);
+            border-left: 4px solid #22c55e;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 18px 40px rgba(15,23,42,0.16);
+            pointer-events: auto;
+        }
+
+        .app-toast.error { border-left-color: #ef4444; }
+        .app-toast-icon { color: #22c55e; }
+        .app-toast.error .app-toast-icon { color: #ef4444; }
+
+        .app-toast-text {
+            flex: 1;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .app-toast-text strong {
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        /* =====================================================
+           PANELS
+        ===================================================== */
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(226,232,240,0.9);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .panel-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+        }
+
+        /* =====================================================
+           LIVE SOIL CARDS
+        ===================================================== */
+
+        .data-card {
+            background: linear-gradient(180deg, #ffffff 0%, #fbfefc 100%);
+            min-height: 125px;
+            border-radius: 16px;
+            padding: 18px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+
+        .data-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--green);
+        }
+
+        .data-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--green-border);
+        }
+
+        .card-title {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-value {
+            margin-top: 10px;
+            font-size: 27px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .card-unit {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .card-icon {
+            position: absolute;
+            right: 18px;
+            top: 25px;
+            font-size: 27px;
+            color: #d1fae5;
+        }
+
+        /* =====================================================
+           MAP
+        ===================================================== */
+
+        #mainMap,
+        #recordedMap {
+            width: 100%;
+            border-radius: 14px;
+        }
+
+        #mainMap {
+            height: 500px;
+        }
+
+        /*
+         * Recorded Data page:
+         * keep the table and map compact enough to fit together
+         * on a normal desktop screen without unnecessary scrolling.
+         */
+        #recordedMap {
+            height: 250px;
+        }
+
+        #recordedPage .panel {
+            margin-bottom: 16px;
+            padding: 16px;
+        }
+
+        #recordedPage .panel-title {
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+        }
+
+        #recordedPage .action-bar {
+            margin-bottom: 12px;
+        }
+
+        #recordedPage .table-container {
+            max-height: 300px;
+        }
+
+        .map-buttons {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .map-btn {
+            border: none;
+            padding: 9px 15px;
+            border-radius: 14px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .record-btn {
+            background: var(--green);
+            color: white;
+        }
+
+        .record-btn:hover {
+            background: var(--green-dark);
+        }
+
+        .map-btn:hover,
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15,23,42,0.10);
+        }
+
+        .clear-btn {
+            background: var(--danger);
+            color: white;
+        }
+
+        .locate-btn {
+            background: #f1f1f1;
+            color: #333;
+        }
+
+        .map-legend {
+            background: white;
+            padding: 9px 12px;
+            border-radius: 6px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.2);
+            font-size: 12px;
+        }
+
+        .legend-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .legend-green {
+            background: #28a745;
+        }
+
+        .legend-blue {
+            background: #007bff;
+        }
+
+        /* =====================================================
+           TIMESTAMP
+        ===================================================== */
+
+        .timestamp {
+            background: var(--green-soft);
+            border: 1px solid var(--green-border);
+            border-left: 4px solid var(--green);
+            padding: 11px 15px;
+            margin-bottom: 20px;
+            color: #166534;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        /* =====================================================
+           RECORDED DATA PAGE
+        ===================================================== */
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-bottom: 20px;
         }
 
-        #map { 
-            height: 500px; 
-            position: relative; 
+        .action-btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 15px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform .18s ease, box-shadow .18s ease;
         }
 
-        /* Locate Button Styling */
-        .locate-btn {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            z-index: 1000;
-            background: white;
-            border: none;
-            border-radius: 50%;
-            width: 45px;
-            height: 45px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
+        .download-btn {
+            background: #198754;
+            color: white;
         }
-        .locate-btn:hover {
-            background: #f0f0f0;
+
+        .edit-btn {
+            background: #0d6efd;
+            color: white;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            display: none;
+        }
+
+        .clear-data-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .record-count {
+            margin-left: auto;
+            background: #f0fdf4;
+            color: #155724;
+            border: 1px solid #c8e6d0;
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 13px;
         }
 
         .table-container {
+            max-height: 480px;
+            overflow: auto;
+        }
+
+        #recordedPage .table-container {
             max-height: 300px;
-            overflow-y: auto;
-            margin-top: 1rem;
         }
-        #timestampText {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #e9f7ef;
-            border: 1px solid #28a745;
-            border-radius: 8px;
-            color: #155724;
-            font-weight: bold;
+
+        .record-table {
+            min-width: 1000px;
+            font-size: 12px;
+            margin-bottom: 0;
         }
-        .map-legend {
-            position: absolute;
-            bottom: 70px;
-            left: 10px;
-            background: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            box-shadow: 0 0 8px rgba(0,0,0,0.2);
-            font-size: 14px;
-            z-index: 999;
+
+        .record-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        .map-legend i {
-            width: 12px;
-            height: 20px;
+
+        .record-table th {
+            white-space: nowrap;
+            background: #f8fafc !important;
+        }
+
+        .record-table tbody tr {
+            cursor: pointer;
+        }
+
+        .record-table tbody tr:hover {
+            background: #f0fdf4;
+        }
+
+        .record-table tbody tr.selected {
+            background: #fff3cd;
+        }
+
+        .selection-column {
+            display: none;
+        }
+
+        .edit-mode .selection-column {
+            display: table-cell;
+        }
+
+        .edit-mode .delete-btn {
             display: inline-block;
-            margin-right: 6px;
-            background-size: contain;
-            background-repeat: no-repeat;
         }
-        .legend-green { background-image: url('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'); }
-        .legend-blue { background-image: url('https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png'); }
+
+        .edit-mode .edit-btn {
+            background: #6c757d;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 35px;
+            color: #999;
+        }
+
+        /* =====================================================
+           ANALYSIS
+        ===================================================== */
+
+        .chart-box {
+            height: 470px;
+            position: relative;
+        }
+
+        .analysis-note {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-left: 4px solid var(--blue);
+            padding: 12px 15px;
+            font-size: 13px;
+            color: #334155;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .no-analysis {
+            display: flex;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: #999;
+            font-size: 15px;
+            padding: 30px;
+        }
+
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
+        @media (max-width: 1100px) {
+            .sidebar {
+                width: 70px;
+            }
+
+            .logo {
+                font-size: 15px;
+                letter-spacing: 1px;
+            }
+
+            .logo-subtitle {
+                display: none;
+            }
+
+            .menu-item {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .menu-item span {
+                display: none;
+            }
+
+            .menu-item i {
+                width: auto;
+            }
+
+            .sidebar-bottom {
+                font-size: 9px;
+            }
+
+            .main {
+                margin-left: 70px;
+            }
+        }
+
+        @media (max-width: 768px) {
+
+            #dashboardPage #mainMap {
+                height: 400px;
+            }
+
+            #dashboardPage .data-card {
+                min-height: 125px;
+                padding: 18px;
+            }
+
+            #dashboardPage .card-value {
+                margin-top: 10px;
+                font-size: 27px;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 62px;
+                bottom: auto;
+                top: 0;
+            }
+
+            .logo-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 62px;
+                width: 110px;
+                border: none;
+            }
+
+            .menu {
+                height: 62px;
+                padding: 0;
+                margin-left: 110px;
+                display: flex;
+                overflow-x: auto;
+            }
+
+            .menu-item {
+                min-width: 90px;
+                height: 62px;
+                padding: 0 8px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                font-size: 10px;
+                border-left: none !important;
+            }
+
+            .menu-item i {
+                margin-bottom: 4px;
+            }
+
+            .menu-item span {
+                display: block;
+            }
+
+            .sidebar-bottom {
+                display: none;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 80px 12px 20px;
+            }
+
+            .topbar {
+                flex-wrap: wrap;
+                padding: 12px 15px;
+                gap: 8px;
+            }
+
+            .topbar-spacer {
+                display: none;
+            }
+
+            .update-time {
+                width: 100%;
+            }
+
+            #mainMap {
+                height: 400px;
+            }
+
+            #recordedMap {
+                height: 280px;
+            }
+
+            #recordedPage .table-container {
+                max-height: 320px;
+            }
+
+            .record-count {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
-<body class="container-fluid py-4 bg-white text-dark">
 
-    <!-- Fixed Header with Logo -->
-    <div class="header-bar">
-        <div class="soilytic-logo">SOILYTIC</div>
+<body>
+
+<!-- =========================================================
+     LEFT SIDEBAR
+========================================================= -->
+
+<aside class="sidebar">
+
+    <div class="logo-area">
+        <div>
+            <div class="logo">SOILYTIC</div>
+            <div class="logo-subtitle">SOIL ANALYSIS SYSTEM</div>
+        </div>
     </div>
 
-    <!-- Title -->
-    <h2 class="page-title">Soil Nutrient Analysis</h2>
+    <nav class="menu">
 
-    <!-- Map -->
-    <div id="map">
-        <!-- Map Legend -->
-        <div class="map-legend">
-            <div><i class="legend-green"></i> Latest Location</div>
-            <div><i class="legend-blue"></i> Recorded Point</div>
+        <button class="menu-item active"
+                data-page="dashboardPage"
+                data-title="Dashboard">
+            <i class="fa-solid fa-house"></i>
+            <span>Main Dashboard</span>
+        </button>
+
+        <button class="menu-item"
+                data-page="recordedPage"
+                data-title="Recorded Data">
+            <i class="fa-solid fa-table-list"></i>
+            <span>Recorded Data</span>
+        </button>
+
+        <button class="menu-item"
+                data-page="analysisPage"
+                data-title="Analysis">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Analysis</span>
+        </button>
+
+    </nav>
+
+    <div class="sidebar-bottom">
+        <i class="fa-solid fa-seedling"></i>
+        <br>
+        Precision Agriculture
+    </div>
+
+</aside>
+
+
+<!-- =========================================================
+     MAIN CONTENT
+========================================================= -->
+
+<main class="main">
+
+    <!-- =====================================================
+         TOP HEADER
+    ====================================================== -->
+
+    <header class="topbar">
+
+        <div class="dashboard-title">
+            <i id="pageTitleIcon" class="fa-solid fa-house"></i>
+            <span id="pageTitle">Dashboard</span>
         </div>
 
-        <!-- Locate Button -->
-        <button id="locateBtn" class="locate-btn" title="Center on Location">
-            ➤
-        </button>
-    </div>
+        <div class="topbar-spacer"></div>
 
-    <!-- Timestamp Display -->
-    <div id="timestampText">🕒 Last update: --</div>
+        <div class="header-status-group">
+            <div id="cloudStatusChip" class="status-chip warning">
+                <span class="status-light"></span>
+                <span id="cloudStatusText">Connecting</span>
+            </div>
 
-    <!-- Buttons -->
-    <div class="mt-3">
-        <button id="recordBtn" class="btn btn-primary">📍 Record Point</button>
-        <button id="clearBtn" class="btn btn-danger">🗑️ Clear All Points</button>
-    </div>
+            <div id="gpsStatusChip" class="status-chip warning">
+                <span class="status-light"></span>
+                <span id="gpsStatusText">GPS</span>
+            </div>
 
-    <!-- Table of Recorded Points -->
-    <div class="table-container">
-        <table class="table table-bordered table-striped">
-            <thead class="table-light">
-                <tr>
-                    <th>No</th>
-                    <th>Time (MY)</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>Moist (%)</th>
-                    <th>pH</th>
-                    <th>N (mg/kg)</th>
-                    <th>P (mg/kg)</th>
-                    <th>K (mg/kg)</th>
-                    <th>EC</th>
-                </tr>
-            </thead>
-            <tbody id="recordTableBody"></tbody>
-        </table>
-    </div>
+        </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+        <div class="update-time">
+            <strong>Last update:</strong>
+            <span id="topUpdate">--</span>
+        </div>
 
-    <script>
-        const CHANNEL_ID = 2995665;
-        const API_KEY = 'GJVNL72R9QETDKHY';
-        const FETCH_INTERVAL = 5000;
+    </header>
 
-        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        });
 
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: 18
-        });
+    <!-- =====================================================
+         PAGE 1: MAIN DASHBOARD
+    ====================================================== -->
 
-        const map = L.map('map', {
-            center: [0, 0],
-            zoom: 18,
-            layers: [satelliteLayer]
-        });
+    <section id="dashboardPage" class="page active">
 
-        const baseLayers = {
-            "🗺 Street Map": streetLayer,
-            "🛠 Satellite": satelliteLayer
-        };
-        L.control.layers(baseLayers).addTo(map);
+        <!-- Timestamp -->
 
-        const greenIcon = new L.Icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-        });
+        
+        </div>
 
-        const blueIcon = new L.Icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-        });
 
-        let currentMarker = null;
-        let recordedPoints = [];
-        let recordedMarkers = [];
-        let polyline = L.polyline([], { color: 'red' }).addTo(map);
+        <!-- FIELD MAP -->
 
-        async function fetchThingSpeakData() {
-            const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=1`;
-            const response = await fetch(url);
-            const data = await response.json();
-            const feed = data.feeds[0];
-            if (!feed) return;
+        <div class="panel">
 
-            const lat = parseFloat(feed.field1);
-            const lng = parseFloat(feed.field2);
-            const moisture = parseFloat(feed.field3);
-            const n = parseInt(feed.field4);
-            const p = parseInt(feed.field5);
-            const k = parseInt(feed.field6);
-            const ph = parseFloat(feed.field7);
-            const ec = parseFloat(feed.field8);
+            <div class="panel-title">
+                <i class="fa-solid fa-map-location-dot"></i>
+                Field Map
+            </div>
 
-            const utcTime = new Date(feed.created_at);
-            const malaysiaTimeStr = new Intl.DateTimeFormat('en-MY', {
-                timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'short', timeStyle: 'medium'
-            }).format(utcTime);
+            <div class="map-shell">
 
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-            }
+                <div id="mainMap"></div>
 
-            currentMarker = L.marker([lat, lng], { icon: greenIcon }).addTo(map);
-            currentMarker.bindPopup(`
-                🟢 <b>Location:</b> ${lat.toFixed(5)}, ${lng.toFixed(5)}<br>
-                💧 <b>Moisture:</b> ${moisture.toFixed(1)} %<br>
-                ⚡️ <b>EC:</b> ${ec.toFixed(3)} mS/cm<br>
-                🧪 <b>pH:</b> ${ph.toFixed(1)}<br>
-                🧬 <b>N:</b> ${n} mg/kg<br>
-                🧬 <b>P:</b> ${p} mg/kg<br>
-                🧬 <b>K:</b> ${k} mg/kg<br>
-                ⏰ <b>Time:</b> ${malaysiaTimeStr}
-            `);
+                <div class="map-summary">
+                    <div class="map-summary-title">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                        Current Location
+                    </div>
 
-            document.getElementById('timestampText').innerText = `🕒 Last update: ${malaysiaTimeStr}`;
+                    <div class="map-summary-grid">
+                        <span class="map-summary-label">Latitude</span>
+                        <span id="mapSummaryLat" class="map-summary-value">--</span>
 
-            window.currentData = { lat, lng, moisture, ph, n, p, k, ec, malaysiaTimeStr };
+                        <span class="map-summary-label">Longitude</span>
+                        <span id="mapSummaryLng" class="map-summary-value">--</span>
+
+                        <span class="map-summary-label">Recorded Points</span>
+                        <span id="mapSummaryCount" class="map-summary-value">0</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="map-buttons">
+
+                <button id="recordBtn"
+                        class="map-btn record-btn">
+                    <i class="fa-solid fa-location-dot"></i>
+                    Record Point
+                </button>
+
+                <button id="locateBtn"
+                        class="map-btn locate-btn">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    Locate
+                </button>
+
+                <button id="fitTrackBtn"
+                        class="map-btn locate-btn">
+                    <i class="fa-solid fa-route"></i>
+                    Fit Recorded Track
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- LIVE SOIL READINGS -->
+
+        <div class="row g-2 live-readings">
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Soil Moisture</div>
+                    <div class="card-value">
+                        <span id="moistureValue">--</span>
+                        <span class="card-unit">%</span>
+                    </div>
+                    <i class="fa-solid fa-droplet card-icon"></i>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Nitrogen</div>
+                    <div class="card-value">
+                        <span id="nValue">--</span>
+                        <span class="card-unit">mg/kg</span>
+                    </div>
+                    <i class="fa-solid fa-leaf card-icon"></i>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Phosphorus</div>
+                    <div class="card-value">
+                        <span id="pValue">--</span>
+                        <span class="card-unit">mg/kg</span>
+                    </div>
+                    <i class="fa-solid fa-seedling card-icon"></i>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Potassium</div>
+                    <div class="card-value">
+                        <span id="kValue">--</span>
+                        <span class="card-unit">mg/kg</span>
+                    </div>
+                    <i class="fa-solid fa-wheat-awn card-icon"></i>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Soil EC</div>
+                    <div class="card-value">
+                        <span id="ecValue">--</span>
+                        <span class="card-unit">mS/cm</span>
+                    </div>
+                    <i class="fa-solid fa-bolt card-icon"></i>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-lg-4 col-md-6">
+                <div class="data-card">
+                    <div class="card-title">Soil pH</div>
+                    <div class="card-value">
+                        <span id="phValue">--</span>
+                    </div>
+                    <i class="fa-solid fa-flask card-icon"></i>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PAGE 2: RECORDED DATA
+    ====================================================== -->
+
+    <section id="recordedPage" class="page">
+
+        <div class="panel">
+
+            <div class="panel-title">
+                <i class="fa-solid fa-database"></i>
+                Recorded Soil Data
+            </div>
+
+            <div class="action-bar">
+
+                <button id="exportRecordedBtn"
+                        class="action-btn download-btn">
+                    <i class="fa-solid fa-file-csv"></i>
+                    Export Recorded Data (.CSV)
+                </button>
+
+                <button id="editDataBtn"
+                        class="action-btn edit-btn">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    Edit Data
+                </button>
+
+                <button id="deleteSelectedBtn"
+                        class="action-btn delete-btn">
+                    <i class="fa-solid fa-trash"></i>
+                    Delete Selected
+                </button>
+
+                <button id="clearDataBtn"
+                        class="action-btn clear-data-btn">
+                    <i class="fa-solid fa-trash-can"></i>
+                    Clear All Data
+                </button>
+
+                <div class="record-count">
+                    Recorded points:
+                    <strong id="recordCount">0</strong>
+                </div>
+
+            </div>
+
+
+            <div class="filter-bar">
+                <div class="filter-field">
+                    <label for="recordSearchInput">Search recorded data</label>
+                    <input id="recordSearchInput"
+                           type="search"
+                           placeholder="Point, time, GPS or sensor value">
+                </div>
+
+                <div class="filter-field">
+                    <label for="recordDateInput">Filter by date</label>
+                    <input id="recordDateInput" type="date">
+                </div>
+
+                <button id="resetFiltersBtn" class="reset-filter-btn">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    Reset
+                </button>
+            </div>
+
+            <div class="table-container">
+
+                <table id="recordTable"
+                       class="table table-bordered table-hover record-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th class="selection-column">
+                                Select
+                            </th>
+
+                            <th>No</th>
+
+                            <th>Time</th>
+
+                            <th>Latitude</th>
+
+                            <th>Longitude</th>
+
+                            <th>Soil Moisture (%)</th>
+
+                            <th>Soil pH</th>
+
+                            <th>Nitrogen (mg/kg)</th>
+
+                            <th>Phosphorus (mg/kg)</th>
+
+                            <th>Potassium (mg/kg)</th>
+
+                            <th>Soil EC</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="recordTableBody">
+                    </tbody>
+
+                </table>
+
+                <div id="emptyTableMessage"
+                     class="empty-message">
+                    No recorded soil data yet.<br>
+                    Go to <strong>Main Dashboard</strong>
+                    and click <strong>Record Point</strong>.
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- MAP FOR SELECTED RECORD -->
+
+        <div class="panel">
+
+            <div class="panel-title">
+                <i class="fa-solid fa-map"></i>
+                Recorded Point Location
+            </div>
+
+            <div id="recordedMap"></div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PAGE 3: ANALYSIS
+    ====================================================== -->
+
+    <section id="analysisPage" class="page">
+
+        <div class="panel">
+
+            <div class="panel-title">
+                <i class="fa-solid fa-chart-line"></i>
+                NPK Trend Analysis
+            </div>
+
+            <div class="analysis-note">
+                <i class="fa-solid fa-circle-info"></i>
+                The NPK trend below is based
+                <strong>only on points that you manually recorded</strong>
+                using the <strong>Record Point</strong> button.
+                Live ThingSpeak readings that have not been recorded
+                are not included.
+            </div>
+
+            <div id="chartArea" class="chart-box">
+
+                <canvas id="npkChart"></canvas>
+
+                <div id="noAnalysisMessage"
+                     class="no-analysis"
+                     style="display:none;">
+                    No recorded data available for analysis.<br>
+                    Record soil points from the Main Dashboard first.
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- =========================================================
+     LEAFLET JS
+========================================================= -->
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+
+<script>
+
+/* =========================================================
+   THINGSPEAK CONFIGURATION
+========================================================= */
+
+const CHANNEL_ID = 2995665;
+const API_KEY = 'GJVNL72R9QETDKHY';
+const FETCH_INTERVAL = 5000;
+
+/*
+ * This is your existing ThingSpeak field mapping:
+ *
+ * Field 1 = Latitude
+ * Field 2 = Longitude
+ * Field 3 = Soil Moisture
+ * Field 4 = Nitrogen
+ * Field 5 = Phosphorus
+ * Field 6 = Potassium
+ * Field 7 = Soil pH
+ * Field 8 = Soil EC
+ */
+/* =========================================================
+   STORAGE
+========================================================= */
+
+/*
+ * Recorded points are saved in the browser.
+ *
+ * They are NOT automatically written back to ThingSpeak.
+ * This means clicking "Record Point" creates a SOILYTIC
+ * recorded data point without changing the ThingSpeak feed.
+ */
+
+const STORAGE_KEY = 'soilyticRecordedData';
+
+/*
+ * OPTIONAL CLOUD PERSISTENCE
+ * ---------------------------------------------------------
+ * To sync recorded points across devices, connect Supabase.
+ * Leave these blank and the page keeps using localStorage.
+ *
+ * Required table: soilytic_records
+ * Columns:
+ * id bigint primary key
+ * time text
+ * created_at timestamptz
+ * lat double precision
+ * lng double precision
+ * moisture double precision
+ * n double precision
+ * p double precision
+ * k double precision
+ * ph double precision
+ * ec double precision
+ */
+const SUPABASE_URL = 'https://smrpeyhqxlnarblglkld.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_JDb6-Rg6Z-Y-jBN_d8_5EA_WuNdOJfZ';
+const SUPABASE_TABLE = 'soilytic_records';
+
+const CLOUD_STORAGE_ENABLED =
+    SUPABASE_URL.trim() !== '' &&
+    SUPABASE_ANON_KEY.trim() !== '';
+
+let recordedData = [];
+
+try {
+    recordedData =
+        JSON.parse(
+            localStorage.getItem(STORAGE_KEY)
+        ) || [];
+} catch (error) {
+    recordedData = [];
+}
+
+
+function setStatusChip(chipId, textId, state, text) {
+    const chip = document.getElementById(chipId);
+    const label = document.getElementById(textId);
+
+    if (!chip || !label) return;
+
+    chip.classList.remove('online', 'warning', 'offline');
+    chip.classList.add(state);
+    label.innerText = text;
+}
+
+
+function showToast(message, type = 'success', title = '') {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+
+    const toast = document.createElement('div');
+    toast.className = `app-toast ${type === 'error' ? 'error' : ''}`;
+
+    toast.innerHTML = `
+        <i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'} app-toast-icon"></i>
+        <div class="app-toast-text">
+            <strong>${title || (type === 'error' ? 'Unable to complete' : 'Success')}</strong>
+            <span>${message}</span>
+        </div>
+    `;
+
+    stack.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity .2s ease';
+        setTimeout(() => toast.remove(), 220);
+    }, 3200);
+}
+
+
+function updateMapSummary() {
+    document.getElementById('mapSummaryCount').innerText =
+        recordedData.length;
+
+    const d = window.currentData;
+
+    document.getElementById('mapSummaryLat').innerText =
+        d ? Number(d.lat).toFixed(6) : '--';
+
+    document.getElementById('mapSummaryLng').innerText =
+        d ? Number(d.lng).toFixed(6) : '--';
+}
+
+
+function supabaseHeaders(extra = {}) {
+    return {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        ...extra
+    };
+}
+
+
+async function loadRecordedDataFromCloud() {
+    if (!CLOUD_STORAGE_ENABLED) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&order=id.asc`,
+            { headers: supabaseHeaders() }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Cloud read failed: ${response.status}`);
         }
 
-        document.getElementById('recordBtn').addEventListener('click', () => {
-            const d = window.currentData;
-            if (d && d.lat && d.lng) {
-                recordedPoints.push([d.lat, d.lng]);
-                polyline.setLatLngs(recordedPoints);
+        recordedData = await response.json();
 
-                const markerNumber = recordedPoints.length;
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(recordedData)
+        );
+    }
+    catch (error) {
+        console.error('Cloud read error:', error);
 
-                const recordedMarker = L.marker([d.lat, d.lng], { icon: blueIcon })
-                    .addTo(map)
-                    .bindPopup(`
-                        🔵 <strong>Point ${markerNumber}</strong><br>
-                        📍 <b>Location:</b> ${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}<br>
-                        💧 <b>Moisture:</b> ${d.moisture.toFixed(1)} %<br>
-                        ⚡ <b>EC:</b> ${d.ec.toFixed(3)} mS/cm<br>
-                        🧪 <b>pH:</b> ${d.ph.toFixed(1)}<br>
-                        🧬 <b>N:</b> ${d.n} mg/kg<br>
-                        🧬 <b>P:</b> ${d.p} mg/kg<br>
-                        🧬 <b>K:</b> ${d.k} mg/kg<br>
-                        ⏰ <b>Time:</b> ${d.malaysiaTimeStr}
-                    `);
-                recordedMarkers.push(recordedMarker);
+        showToast(
+            'Cloud storage is unavailable. Local browser cache is being used.',
+            'error',
+            'Cloud sync unavailable'
+        );
+    }
+}
 
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${markerNumber}</td>
-                    <td>${d.malaysiaTimeStr}</td>
-                    <td>${d.lat.toFixed(5)}</td>
-                    <td>${d.lng.toFixed(5)}</td>
-                    <td>${d.moisture.toFixed(1)}</td>
-                    <td>${d.ph.toFixed(1)}</td>
-                    <td>${d.n}</td>
-                    <td>${d.p}</td>
-                    <td>${d.k}</td>
-                    <td>${d.ec.toFixed(3)}</td>
-                `;
-                row.style.cursor = "pointer";
-                row.addEventListener("click", () => {
-                    const marker = recordedMarkers[markerNumber - 1];
-                    if (marker) {
-                        map.setView(marker.getLatLng(), 18, { animate: true });
-                        marker.openPopup();
+
+async function insertRecordToCloud(record) {
+    if (!CLOUD_STORAGE_ENABLED) return;
+
+    const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`,
+        {
+            method: 'POST',
+            headers: supabaseHeaders({'Prefer': 'return=minimal'}),
+            body: JSON.stringify(record)
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Cloud insert failed: ${response.status}`);
+    }
+}
+
+
+async function deleteCloudRecords(ids) {
+    if (!CLOUD_STORAGE_ENABLED) return;
+
+    for (const id of ids) {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${encodeURIComponent(id)}`,
+            {
+                method: 'DELETE',
+                headers: supabaseHeaders()
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Cloud delete failed: ${response.status}`);
+        }
+    }
+}
+
+
+async function clearCloudRecords() {
+    if (!CLOUD_STORAGE_ENABLED) return;
+
+    const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=gt.0`,
+        {
+            method: 'DELETE',
+            headers: supabaseHeaders()
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Cloud clear failed: ${response.status}`);
+    }
+}
+
+
+/* =========================================================
+   MAP LAYERS
+========================================================= */
+
+const streetLayer = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+        attribution: '© OpenStreetMap contributors'
+    }
+);
+
+const satelliteLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+        attribution: 'Tiles © Esri',
+        maxZoom: 18
+    }
+);
+
+
+/* =========================================================
+   MAP ICONS
+========================================================= */
+
+const greenIcon = new L.Icon({
+    iconUrl:
+        'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    shadowUrl:
+        'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+const blueIcon = new L.Icon({
+    iconUrl:
+        'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+    shadowUrl:
+        'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+
+/* =========================================================
+   MAIN DASHBOARD MAP
+========================================================= */
+
+const mainMap = L.map(
+    'mainMap',
+    {
+        center: [0, 0],
+        zoom: 18,
+        layers: [satelliteLayer]
+    }
+);
+
+const mainBaseLayers = {
+    "Street Map": streetLayer,
+    "Satellite": satelliteLayer
+};
+
+L.control.layers(
+    mainBaseLayers
+).addTo(mainMap);
+
+
+/* =========================================================
+   RECORDED DATA MAP
+========================================================= */
+
+const recordedMap = L.map(
+    'recordedMap',
+    {
+        center: [0, 0],
+        zoom: 18,
+        layers: [satelliteLayer]
+    }
+);
+
+const recordedBaseLayers = {
+    "Street Map": streetLayer,
+    "Satellite": satelliteLayer
+};
+
+L.control.layers(
+    recordedBaseLayers
+).addTo(recordedMap);
+
+
+/* =========================================================
+   MAIN MAP MARKERS / TRACK
+========================================================= */
+
+let currentMarker = null;
+
+let recordedMarkers = [];
+
+let recordedPolyline =
+    L.polyline(
+        [],
+        {
+            color: 'red',
+            weight: 3
+        }
+    ).addTo(mainMap);
+
+let mapInitialized = false;
+
+
+/* =========================================================
+   RECORDED MAP MARKERS
+========================================================= */
+
+let recordedPageMarkers = [];
+
+let recordedPagePolyline =
+    L.polyline(
+        [],
+        {
+            color: 'red',
+            weight: 3
+        }
+    ).addTo(recordedMap);
+
+
+/* =========================================================
+   CURRENT LIVE DATA
+========================================================= */
+
+window.currentData = null;
+
+
+/* =========================================================
+   CHART
+========================================================= */
+
+let npkChart = null;
+
+function createChart() {
+
+    const canvas =
+        document.getElementById('npkChart');
+
+    if (!canvas) return;
+
+    npkChart =
+        new Chart(
+            canvas,
+            {
+                type: 'line',
+
+                data: {
+                    labels: [],
+
+                    datasets: [
+
+                        {
+                            label: 'Nitrogen (N)',
+                            data: [],
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        },
+
+                        {
+                            label: 'Phosphorus (P)',
+                            data: [],
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        },
+
+                        {
+                            label: 'Potassium (K)',
+                            data: [],
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        }
+
+                    ]
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    maintainAspectRatio: false,
+
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+
+                    plugins: {
+
+                        legend: {
+                            display: true
+                        },
+
+                        tooltip: {
+                            enabled: true
+                        }
+
+                    },
+
+                    scales: {
+
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Recorded Point'
+                            }
+                        },
+
+                        y: {
+                            beginAtZero: true,
+
+                            title: {
+                                display: true,
+                                text: 'Nutrient concentration (mg/kg)'
+                            }
+                        }
+
                     }
-                });
 
-                document.getElementById('recordTableBody').appendChild(row);
+                }
             }
-        });
+        );
+}
 
-        document.getElementById('clearBtn').addEventListener('click', () => {
-            recordedPoints = [];
-            recordedMarkers.forEach(m => map.removeLayer(m));
-            recordedMarkers = [];
-            polyline.setLatLngs([]);
-            document.getElementById('recordTableBody').innerHTML = '';
-        });
 
-        // Locate Button Functionality
-        document.getElementById('locateBtn').addEventListener('click', () => {
-            if (window.currentData) {
-                map.setView([window.currentData.lat, window.currentData.lng], 18, { animate: true });
+/* =========================================================
+   PAGE NAVIGATION
+========================================================= */
+
+const pageIcons = {
+    dashboardPage: 'fa-solid fa-house',
+    recordedPage: 'fa-solid fa-table-list',
+    analysisPage: 'fa-solid fa-chart-line'
+};
+
+document.querySelectorAll(
+    '.menu-item'
+).forEach(
+    button => {
+
+        button.addEventListener(
+            'click',
+            () => {
+
+                const pageId =
+                    button.dataset.page;
+
+                const pageTitle =
+                    button.dataset.title;
+
+                /*
+                 * Hide all pages.
+                 */
+
+                document.querySelectorAll(
+                    '.page'
+                ).forEach(
+                    page => {
+                        page.classList.remove(
+                            'active'
+                        );
+                    }
+                );
+
+                /*
+                 * Show selected page.
+                 */
+
+                document.getElementById(
+                    pageId
+                ).classList.add(
+                    'active'
+                );
+
+                /*
+                 * Update sidebar.
+                 */
+
+                document.querySelectorAll(
+                    '.menu-item'
+                ).forEach(
+                    item => {
+                        item.classList.remove(
+                            'active'
+                        );
+                    }
+                );
+
+                button.classList.add(
+                    'active'
+                );
+
+                /*
+                 * Update header.
+                 */
+
+                document.getElementById(
+                    'pageTitle'
+                ).innerText =
+                    pageTitle;
+
+                document.getElementById(
+                    'pageTitleIcon'
+                ).className =
+                    pageIcons[pageId];
+
+                /*
+                 * Leaflet maps sometimes need to
+                 * recalculate their size after their
+                 * container becomes visible.
+                 */
+
+                setTimeout(
+                    () => {
+
+                        if (
+                            pageId ===
+                            'dashboardPage'
+                        ) {
+                            mainMap.invalidateSize();
+                        }
+
+                        if (
+                            pageId ===
+                            'recordedPage'
+                        ) {
+                            recordedMap.invalidateSize();
+                            renderRecordedPageMap();
+                        }
+
+                        if (
+                            pageId ===
+                            'analysisPage'
+                        ) {
+                            updateNPKChart();
+                        }
+
+                    },
+                    100
+                );
+
             }
-        });
+        );
 
-        fetchThingSpeakData();
-        setInterval(fetchThingSpeakData, FETCH_INTERVAL);
-    </script>
+    }
+);
+
+
+/* =========================================================
+   FORMAT MALAYSIA TIME
+========================================================= */
+
+function formatMalaysiaTime(
+    createdAt
+) {
+
+    if (!createdAt) {
+        return '--';
+    }
+
+    const utcTime =
+        new Date(createdAt);
+
+    return new Intl.DateTimeFormat(
+        'en-MY',
+        {
+            timeZone: 'Asia/Kuala_Lumpur',
+            dateStyle: 'short',
+            timeStyle: 'medium'
+        }
+    ).format(
+        utcTime
+    );
+}
+
+
+/* =========================================================
+   UPDATE LIVE CARDS
+========================================================= */
+
+function updateLiveCards(data) {
+
+    document.getElementById(
+        'moistureValue'
+    ).innerText =
+        Number(data.moisture).toFixed(1);
+
+    document.getElementById(
+        'nValue'
+    ).innerText =
+        Number(data.n);
+
+    document.getElementById(
+        'pValue'
+    ).innerText =
+        Number(data.p);
+
+    document.getElementById(
+        'kValue'
+    ).innerText =
+        Number(data.k);
+
+    document.getElementById(
+        'ecValue'
+    ).innerText =
+        Number(data.ec).toFixed(3);
+
+    document.getElementById(
+        'phValue'
+    ).innerText =
+        Number(data.ph).toFixed(1);
+}
+
+
+/* =========================================================
+   FETCH LATEST THINGSPEAK DATA
+========================================================= */
+
+async function fetchThingSpeakData() {
+
+    try {
+
+        const url =
+            `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=1`;
+
+        const response =
+            await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(
+                `HTTP ${response.status}`
+            );
+        }
+
+        const data =
+            await response.json();
+
+        if (
+            !data.feeds ||
+            data.feeds.length === 0
+        ) {
+            return;
+        }
+
+        const feed =
+            data.feeds[0];
+
+
+        /* =================================================
+           FIELD MAPPING
+        ================================================= */
+
+        const lat =
+            parseFloat(feed.field1);
+
+        const lng =
+            parseFloat(feed.field2);
+
+        const moisture =
+            parseFloat(feed.field3);
+
+        const n =
+            parseFloat(feed.field4);
+
+        const p =
+            parseFloat(feed.field5);
+
+        const k =
+            parseFloat(feed.field6);
+
+        const ph =
+            parseFloat(feed.field7);
+
+        const ec =
+            parseFloat(feed.field8);
+
+
+        /*
+         * Ignore incomplete GPS readings.
+         */
+
+        if (
+            Number.isNaN(lat) ||
+            Number.isNaN(lng)
+        ) {
+            return;
+        }
+
+
+        const malaysiaTimeStr =
+            formatMalaysiaTime(
+                feed.created_at
+            );
+
+
+        const liveData = {
+
+            lat: lat,
+            lng: lng,
+            moisture: moisture,
+            n: n,
+            p: p,
+            k: k,
+            ph: ph,
+            ec: ec,
+            malaysiaTimeStr:
+                malaysiaTimeStr,
+            created_at:
+                feed.created_at
+
+        };
+
+
+        window.currentData =
+            liveData;
+
+        setStatusChip(
+            'cloudStatusChip',
+            'cloudStatusText',
+            'online',
+            'Online'
+        );
+
+        const gpsValid =
+            Number.isFinite(lat) &&
+            Number.isFinite(lng) &&
+            !(lat === 0 && lng === 0);
+
+        setStatusChip(
+            'gpsStatusChip',
+            'gpsStatusText',
+            gpsValid ? 'online' : 'offline',
+            gpsValid ? 'GPS' : 'Offline'
+        );
+
+        updateMapSummary();
+
+
+        /* =================================================
+           UPDATE DASHBOARD
+        ================================================= */
+
+        updateLiveCards(
+            liveData
+        );
+
+
+        document.getElementById(
+            'timestampText'
+        ).innerText =
+            malaysiaTimeStr;
+
+
+        document.getElementById(
+            'topUpdate'
+        ).innerText =
+            malaysiaTimeStr;
+
+
+        /* =================================================
+           UPDATE CURRENT GREEN MARKER
+        ================================================= */
+
+        if (currentMarker) {
+            mainMap.removeLayer(
+                currentMarker
+            );
+        }
+
+
+        currentMarker =
+            L.marker(
+                [lat, lng],
+                {
+                    icon: greenIcon
+                }
+            ).addTo(
+                mainMap
+            );
+
+
+        currentMarker.bindPopup(`
+
+            <strong>SOILYTIC - Latest Location</strong>
+            <br><br>
+
+            📍 ${lat.toFixed(5)},
+            ${lng.toFixed(5)}
+
+            <br>
+
+            💧 Moisture:
+            ${moisture.toFixed(1)} %
+
+            <br>
+
+            🧬 N:
+            ${n} mg/kg
+
+            <br>
+
+            🧬 P:
+            ${p} mg/kg
+
+            <br>
+
+            🧬 K:
+            ${k} mg/kg
+
+            <br>
+
+            ⚡ EC:
+            ${ec.toFixed(3)} mS/cm
+
+            <br>
+
+            🧪 pH:
+            ${ph.toFixed(1)}
+
+            <br><br>
+
+            ⏰ ${malaysiaTimeStr}
+
+        `);
+
+
+        /*
+         * Center the map on the first valid
+         * ThingSpeak GPS reading.
+         */
+
+        if (!mapInitialized) {
+
+            mainMap.setView(
+                [lat, lng],
+                18
+            );
+
+            mapInitialized = true;
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            'ThingSpeak error:',
+            error
+        );
+
+        document.getElementById(
+            'topUpdate'
+        ).innerText =
+            'Connection error';
+
+        setStatusChip(
+            'cloudStatusChip',
+            'cloudStatusText',
+            'offline',
+            'Offline'
+        );
+
+        setStatusChip(
+            'gpsStatusChip',
+            'gpsStatusText',
+            'offline',
+            'Offline'
+        );
+
+    }
+}
+
+
+/* =========================================================
+   SAVE RECORDED DATA
+========================================================= */
+
+function saveRecordedData() {
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(
+            recordedData
+        )
+    );
+
+    updateMapSummary();
+}
+
+
+/* =========================================================
+   RECORD CURRENT POINT
+========================================================= */
+
+document.getElementById(
+    'recordBtn'
+).addEventListener(
+    'click',
+    async () => {
+
+        const data =
+            window.currentData;
+
+
+        if (!data) {
+
+            showToast(
+                'No current soil data is available yet.',
+                'error',
+                'Cannot record point'
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * Create a permanent local record.
+         */
+
+        const record = {
+
+            id:
+                Date.now(),
+
+            time:
+                data.malaysiaTimeStr,
+
+            created_at:
+                data.created_at,
+
+            lat:
+                data.lat,
+
+            lng:
+                data.lng,
+
+            moisture:
+                data.moisture,
+
+            n:
+                data.n,
+
+            p:
+                data.p,
+
+            k:
+                data.k,
+
+            ph:
+                data.ph,
+
+            ec:
+                data.ec
+
+        };
+
+
+        recordedData.push(
+            record
+        );
+
+
+        saveRecordedData();
+
+        if (CLOUD_STORAGE_ENABLED) {
+            try {
+                await insertRecordToCloud(record);
+            }
+            catch (error) {
+                console.error('Cloud insert error:', error);
+
+                showToast(
+                    'Point saved locally, but cloud sync failed.',
+                    'error',
+                    'Cloud sync warning'
+                );
+            }
+        }
+
+
+        /*
+         * Update maps, table and chart.
+         */
+
+        renderMainRecordedMarkers();
+
+        renderRecordedTable();
+
+        renderRecordedPageMap();
+
+        updateNPKChart();
+
+
+        showToast(
+            `Point ${recordedData.length} recorded successfully.`,
+            'success',
+            'Soil point recorded'
+        );
+
+    }
+);
+
+
+/* =========================================================
+   RENDER MAIN MAP RECORDED POINTS
+========================================================= */
+
+function renderMainRecordedMarkers() {
+
+    /*
+     * Remove old recorded markers.
+     */
+
+    recordedMarkers.forEach(
+        marker => {
+
+            mainMap.removeLayer(
+                marker
+            );
+
+        }
+    );
+
+    recordedMarkers = [];
+
+
+    /*
+     * Create the new track.
+     */
+
+    const coordinates =
+        [];
+
+
+    recordedData.forEach(
+        (record, index) => {
+
+            const marker =
+                L.marker(
+                    [
+                        record.lat,
+                        record.lng
+                    ],
+                    {
+                        icon: blueIcon
+                    }
+                ).addTo(
+                    mainMap
+                );
+
+
+            marker.bindPopup(`
+
+                <strong>
+                    Recorded Point ${index + 1}
+                </strong>
+
+                <br><br>
+
+                📍
+                ${Number(record.lat).toFixed(5)},
+                ${Number(record.lng).toFixed(5)}
+
+                <br>
+
+                💧 Moisture:
+                ${Number(record.moisture).toFixed(1)} %
+
+                <br>
+
+                🧬 N:
+                ${record.n} mg/kg
+
+                <br>
+
+                🧬 P:
+                ${record.p} mg/kg
+
+                <br>
+
+                🧬 K:
+                ${record.k} mg/kg
+
+                <br>
+
+                ⚡ EC:
+                ${Number(record.ec).toFixed(3)} mS/cm
+
+                <br>
+
+                🧪 pH:
+                ${Number(record.ph).toFixed(1)}
+
+                <br><br>
+
+                ⏰ ${record.time}
+
+            `);
+
+
+            recordedMarkers.push(
+                marker
+            );
+
+
+            coordinates.push(
+                [
+                    record.lat,
+                    record.lng
+                ]
+            );
+
+        }
+    );
+
+
+    recordedPolyline.setLatLngs(
+        coordinates
+    );
+
+}
+
+
+/* =========================================================
+   RENDER RECORDED PAGE MAP
+========================================================= */
+
+function renderRecordedPageMap() {
+
+    /*
+     * Remove old markers.
+     */
+
+    recordedPageMarkers.forEach(
+        marker => {
+
+            recordedMap.removeLayer(
+                marker
+            );
+
+        }
+    );
+
+    recordedPageMarkers = [];
+
+
+    const coordinates =
+        [];
+
+
+    recordedData.forEach(
+        (record, index) => {
+
+            const marker =
+                L.marker(
+                    [
+                        record.lat,
+                        record.lng
+                    ],
+                    {
+                        icon: blueIcon
+                    }
+                ).addTo(
+                    recordedMap
+                );
+
+
+            marker.bindPopup(`
+
+                <strong>
+                    Recorded Point ${index + 1}
+                </strong>
+
+                <br><br>
+
+                📍
+                ${Number(record.lat).toFixed(5)},
+                ${Number(record.lng).toFixed(5)}
+
+                <br>
+
+                💧 Moisture:
+                ${Number(record.moisture).toFixed(1)} %
+
+                <br>
+
+                🧬 N:
+                ${record.n} mg/kg
+
+                <br>
+
+                🧬 P:
+                ${record.p} mg/kg
+
+                <br>
+
+                🧬 K:
+                ${record.k} mg/kg
+
+                <br>
+
+                ⚡ EC:
+                ${Number(record.ec).toFixed(3)} mS/cm
+
+                <br><br>
+
+                ⏰ ${record.time}
+
+            `);
+
+
+            recordedPageMarkers.push(
+                marker
+            );
+
+
+            coordinates.push(
+                [
+                    record.lat,
+                    record.lng
+                ]
+            );
+
+        }
+    );
+
+
+    recordedPagePolyline.setLatLngs(
+        coordinates
+    );
+
+
+    /*
+     * Fit the map to recorded points.
+     */
+
+    if (
+        coordinates.length > 0
+    ) {
+
+        recordedMap.fitBounds(
+            coordinates,
+            {
+                padding: [30, 30]
+            }
+        );
+
+    }
+}
+
+
+/* =========================================================
+   RENDER RECORDED TABLE
+========================================================= */
+
+function renderRecordedTable() {
+
+    const tbody =
+        document.getElementById(
+            'recordTableBody'
+        );
+
+    const emptyMessage =
+        document.getElementById(
+            'emptyTableMessage'
+        );
+
+    const recordCount =
+        document.getElementById(
+            'recordCount'
+        );
+
+
+    tbody.innerHTML = '';
+
+
+    recordCount.innerText =
+        recordedData.length;
+
+
+    if (
+        recordedData.length === 0
+    ) {
+
+        emptyMessage.style.display =
+            'block';
+
+        return;
+
+    }
+
+
+    emptyMessage.style.display =
+        'none';
+
+
+    recordedData.forEach(
+        (record, index) => {
+
+            const row =
+                document.createElement(
+                    'tr'
+                );
+
+
+            row.dataset.id =
+                record.id;
+
+
+            row.innerHTML = `
+
+                <td class="selection-column">
+
+                    <input
+                        type="checkbox"
+                        class="record-checkbox"
+                        data-id="${record.id}"
+                    >
+
+                </td>
+
+                <td>${index + 1}</td>
+
+                <td>${record.time}</td>
+
+                <td>${Number(record.lat).toFixed(5)}</td>
+
+                <td>${Number(record.lng).toFixed(5)}</td>
+
+                <td>${Number(record.moisture).toFixed(1)}</td>
+
+                <td>${Number(record.ph).toFixed(1)}</td>
+
+                <td>${record.n}</td>
+
+                <td>${record.p}</td>
+
+                <td>${record.k}</td>
+
+                <td>${Number(record.ec).toFixed(3)}</td>
+
+            `;
+
+
+            /*
+             * Clicking the row shows its location.
+             *
+             * Do not move the map if the user clicks
+             * directly on the checkbox.
+             */
+
+            row.addEventListener(
+                'click',
+                event => {
+
+                    if (
+                        event.target.classList.contains(
+                            'record-checkbox'
+                        )
+                    ) {
+                        return;
+                    }
+
+
+                    const recordId =
+                        Number(
+                            row.dataset.id
+                        );
+
+
+                    const recordIndex =
+                        recordedData.findIndex(
+                            item =>
+                                item.id ===
+                                recordId
+                        );
+
+
+                    if (
+                        recordIndex === -1
+                    ) {
+                        return;
+                    }
+
+
+                    const record =
+                        recordedData[
+                            recordIndex
+                        ];
+
+
+                    /*
+                     * Switch to map area on the
+                     * Recorded Data page.
+                     */
+
+                    recordedMap.setView(
+                        [
+                            record.lat,
+                            record.lng
+                        ],
+                        18,
+                        {
+                            animate: true
+                        }
+                    );
+
+
+                    if (
+                        recordedPageMarkers[
+                            recordIndex
+                        ]
+                    ) {
+
+                        recordedPageMarkers[
+                            recordIndex
+                        ].openPopup();
+
+                    }
+
+                }
+            );
+
+
+            /*
+             * Checkbox selection.
+             */
+
+            const checkbox =
+                row.querySelector(
+                    '.record-checkbox'
+                );
+
+
+            checkbox.addEventListener(
+                'change',
+                () => {
+
+                    row.classList.toggle(
+                        'selected',
+                        checkbox.checked
+                    );
+
+                }
+            );
+
+
+            tbody.appendChild(
+                row
+            );
+
+        }
+    );
+
+}
+
+
+
+function applyRecordedFilters() {
+    const search =
+        document.getElementById('recordSearchInput')
+        .value.trim().toLowerCase();
+
+    const date =
+        document.getElementById('recordDateInput').value;
+
+    document.querySelectorAll(
+        '#recordTableBody tr'
+    ).forEach(row => {
+        const recordId = Number(row.dataset.id);
+
+        const index =
+            recordedData.findIndex(
+                item => item.id === recordId
+            );
+
+        if (index === -1) {
+            row.style.display = 'none';
+            return;
+        }
+
+        const record = recordedData[index];
+
+        const searchable = [
+            `point ${index + 1}`,
+            record.time,
+            record.lat,
+            record.lng,
+            record.moisture,
+            record.ph,
+            record.n,
+            record.p,
+            record.k,
+            record.ec
+        ].join(' ').toLowerCase();
+
+        let dateMatches = true;
+
+        if (date && record.created_at) {
+            const localDate =
+                new Intl.DateTimeFormat(
+                    'en-CA',
+                    {
+                        timeZone: 'Asia/Kuala_Lumpur',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }
+                ).format(new Date(record.created_at));
+
+            dateMatches = localDate === date;
+        }
+
+        row.style.display =
+            (!search || searchable.includes(search)) &&
+            dateMatches
+            ? ''
+            : 'none';
+    });
+}
+
+
+document.getElementById(
+    'recordSearchInput'
+).addEventListener(
+    'input',
+    applyRecordedFilters
+);
+
+
+document.getElementById(
+    'recordDateInput'
+).addEventListener(
+    'change',
+    applyRecordedFilters
+);
+
+
+document.getElementById(
+    'resetFiltersBtn'
+).addEventListener(
+    'click',
+    () => {
+        document.getElementById(
+            'recordSearchInput'
+        ).value = '';
+
+        document.getElementById(
+            'recordDateInput'
+        ).value = '';
+
+        applyRecordedFilters();
+    }
+);
+
+
+/* =========================================================
+   EDIT DATA BUTTON
+========================================================= */
+
+let editMode = false;
+
+document.getElementById(
+    'editDataBtn'
+).addEventListener(
+    'click',
+    () => {
+
+        editMode =
+            !editMode;
+
+
+        const table =
+            document.getElementById(
+                'recordTable'
+            );
+
+
+        if (editMode) {
+
+            table.classList.add(
+                'edit-mode'
+            );
+
+            document.getElementById(
+                'editDataBtn'
+            ).innerHTML =
+                '<i class="fa-solid fa-xmark"></i> Cancel Edit';
+
+        }
+
+        else {
+
+            table.classList.remove(
+                'edit-mode'
+            );
+
+            document.getElementById(
+                'editDataBtn'
+            ).innerHTML =
+                '<i class="fa-solid fa-pen-to-square"></i> Edit Data';
+
+
+            /*
+             * Clear selections.
+             */
+
+            document.querySelectorAll(
+                '.record-checkbox'
+            ).forEach(
+                checkbox => {
+
+                    checkbox.checked =
+                        false;
+
+                    checkbox.closest(
+                        'tr'
+                    ).classList.remove(
+                        'selected'
+                    );
+
+                }
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   DELETE SELECTED
+========================================================= */
+
+document.getElementById(
+    'deleteSelectedBtn'
+).addEventListener(
+    'click',
+    async () => {
+
+        const selected =
+            Array.from(
+                document.querySelectorAll(
+                    '.record-checkbox:checked'
+                )
+            ).map(
+                checkbox =>
+                    Number(
+                        checkbox.dataset.id
+                    )
+            );
+
+
+        if (
+            selected.length === 0
+        ) {
+
+            alert(
+                'Please select at least one row to delete.'
+            );
+
+            return;
+
+        }
+
+
+        const confirmed =
+            confirm(
+                `Delete ${selected.length} selected record(s)?`
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        if (CLOUD_STORAGE_ENABLED) {
+            try {
+                await deleteCloudRecords(selected);
+            }
+            catch (error) {
+                console.error('Cloud delete error:', error);
+
+                showToast(
+                    'Cloud delete failed, so the selected rows were not removed.',
+                    'error',
+                    'Delete stopped'
+                );
+                return;
+            }
+        }
+
+        recordedData =
+            recordedData.filter(
+                record =>
+                    !selected.includes(
+                        record.id
+                    )
+            );
+
+
+        saveRecordedData();
+
+
+        renderRecordedTable();
+
+        renderMainRecordedMarkers();
+
+        renderRecordedPageMap();
+
+        updateNPKChart();
+
+
+        alert(
+            'Selected recorded data deleted.'
+        );
+
+    }
+);
+
+
+/* =========================================================
+   CLEAR ALL RECORDED DATA
+========================================================= */
+
+document.getElementById(
+    'clearDataBtn'
+).addEventListener(
+    'click',
+    async () => {
+
+        if (
+            recordedData.length === 0
+        ) {
+
+            alert(
+                'There is no recorded data to clear.'
+            );
+
+            return;
+
+        }
+
+
+        const confirmed =
+            confirm(
+                'Are you sure you want to delete ALL SOILYTIC recorded data from this browser?'
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        if (CLOUD_STORAGE_ENABLED) {
+            try {
+                await clearCloudRecords();
+            }
+            catch (error) {
+                console.error('Cloud clear error:', error);
+
+                showToast(
+                    'Cloud storage could not be cleared, so local records were left unchanged.',
+                    'error',
+                    'Clear stopped'
+                );
+                return;
+            }
+        }
+
+        recordedData = [];
+
+
+        saveRecordedData();
+
+
+        renderRecordedTable();
+
+        renderMainRecordedMarkers();
+
+        renderRecordedPageMap();
+
+        updateNPKChart();
+
+
+        alert(
+            'All SOILYTIC recorded data has been cleared.'
+        );
+
+    }
+);
+
+
+/* =========================================================
+   LOCATE CURRENT LIVE POSITION
+========================================================= */
+
+document.getElementById(
+    'locateBtn'
+).addEventListener(
+    'click',
+    () => {
+
+        if (
+            !window.currentData
+        ) {
+
+            alert(
+                'No current GPS position is available.'
+            );
+
+            return;
+
+        }
+
+
+        mainMap.setView(
+            [
+                window.currentData.lat,
+                window.currentData.lng
+            ],
+            18,
+            {
+                animate: true
+            }
+        );
+
+
+        if (currentMarker) {
+            currentMarker.openPopup();
+        }
+
+    }
+);
+
+
+document.getElementById(
+    'fitTrackBtn'
+).addEventListener(
+    'click',
+    () => {
+
+        if (recordedData.length === 0) {
+            showToast(
+                'Record at least one point before fitting the track.',
+                'error',
+                'No recorded track'
+            );
+            return;
+        }
+
+        const coordinates =
+            recordedData.map(
+                record => [
+                    Number(record.lat),
+                    Number(record.lng)
+                ]
+            );
+
+        if (coordinates.length === 1) {
+            mainMap.setView(
+                coordinates[0],
+                18,
+                { animate: true }
+            );
+        }
+        else {
+            mainMap.fitBounds(
+                coordinates,
+                { padding: [35,35] }
+            );
+        }
+    }
+);
+
+
+/* =========================================================
+   NPK CHART
+========================================================= */
+
+function updateNPKChart() {
+
+    if (!npkChart) {
+        return;
+    }
+
+
+    const noMessage =
+        document.getElementById(
+            'noAnalysisMessage'
+        );
+
+
+    if (
+        recordedData.length === 0
+    ) {
+
+        npkChart.data.labels = [];
+
+        npkChart.data.datasets[0].data = [];
+
+        npkChart.data.datasets[1].data = [];
+
+        npkChart.data.datasets[2].data = [];
+
+        npkChart.update();
+
+
+        noMessage.style.display =
+            'flex';
+
+        return;
+
+    }
+
+
+    noMessage.style.display =
+        'none';
+
+
+    const labels =
+        recordedData.map(
+            (_, index) =>
+                `Point ${index + 1}`
+        );
+
+
+    const nValues =
+        recordedData.map(
+            record =>
+                Number(record.n) || 0
+        );
+
+
+    const pValues =
+        recordedData.map(
+            record =>
+                Number(record.p) || 0
+        );
+
+
+    const kValues =
+        recordedData.map(
+            record =>
+                Number(record.k) || 0
+        );
+
+
+    npkChart.data.labels =
+        labels;
+
+
+    npkChart.data.datasets[0].data =
+        nValues;
+
+
+    npkChart.data.datasets[1].data =
+        pValues;
+
+
+    npkChart.data.datasets[2].data =
+        kValues;
+
+
+    npkChart.update();
+
+}
+
+
+function csvEscape(value) {
+    const text =
+        value === null || value === undefined
+        ? ''
+        : String(value);
+
+    return (
+        text.includes(',') ||
+        text.includes('"') ||
+        text.includes('\n')
+    )
+    ? `"${text.replace(/"/g, '""')}"`
+    : text;
+}
+
+
+document.getElementById(
+    'exportRecordedBtn'
+).addEventListener(
+    'click',
+    () => {
+
+        if (recordedData.length === 0) {
+            showToast(
+                'There is no recorded data to export.',
+                'error',
+                'Nothing to export'
+            );
+            return;
+        }
+
+        const headers = [
+            'No',
+            'Time',
+            'Latitude',
+            'Longitude',
+            'Soil Moisture (%)',
+            'Soil pH',
+            'Nitrogen (mg/kg)',
+            'Phosphorus (mg/kg)',
+            'Potassium (mg/kg)',
+            'Soil EC'
+        ];
+
+        const rows =
+            recordedData.map(
+                (record, index) => [
+                    index + 1,
+                    record.time,
+                    record.lat,
+                    record.lng,
+                    record.moisture,
+                    record.ph,
+                    record.n,
+                    record.p,
+                    record.k,
+                    record.ec
+                ]
+            );
+
+        const csv =
+            [headers, ...rows]
+            .map(
+                row =>
+                    row.map(csvEscape).join(',')
+            )
+            .join('\n');
+
+        const blob =
+            new Blob(
+                [csv],
+                {type: 'text/csv;charset=utf-8;'}
+            );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement('a');
+
+        link.href = url;
+        link.download =
+            `SOILYTIC-recorded-data-${new Date().toISOString().slice(0,10)}.csv`;
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        showToast(
+            `${recordedData.length} recorded point(s) exported.`,
+            'success',
+            'CSV created'
+        );
+    }
+);
+
+
+/* =========================================================
+   INITIALISE
+========================================================= */
+
+createChart();
+
+
+async function initialiseRecordedData() {
+    await loadRecordedDataFromCloud();
+
+    renderRecordedTable();
+    renderMainRecordedMarkers();
+    renderRecordedPageMap();
+    updateNPKChart();
+    updateMapSummary();
+}
+
+initialiseRecordedData();
+
+
+/*
+ * Start ThingSpeak live update.
+ */
+
+fetchThingSpeakData();
+
+setInterval(
+    fetchThingSpeakData,
+    FETCH_INTERVAL
+);
+
+
+/*
+ * Give Leaflet maps time to initialise.
+ */
+
+setTimeout(
+    () => {
+
+        mainMap.invalidateSize();
+
+        recordedMap.invalidateSize();
+
+    },
+    500
+);
+
+</script>
+
+<div id="toastStack" class="toast-stack" aria-live="polite"></div>
+
 </body>
 </html>
