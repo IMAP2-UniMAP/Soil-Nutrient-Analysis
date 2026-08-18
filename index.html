@@ -910,6 +910,17 @@
                 margin-left: 0;
             }
         }
+    
+        #deleteSelectedBtn {
+            display: none;
+        }
+
+        #deleteSelectedBtn.show {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 6px;
+        }
+
     </style>
 </head>
 
@@ -1175,7 +1186,7 @@
 
                 <button id="deleteSelectedBtn"
                         class="action-btn delete-btn">
-                    <i class="fa-solid fa-trash"></i>
+                    <i class="fa-solid fa-trash-can"></i>
                     Delete Selected
                 </button>
 
@@ -2186,19 +2197,70 @@ document.getElementById(
 
 
         /*
-         * Keep the map centered on the latest valid
-         * ThingSpeak GPS reading.
+         * Fast map behaviour:
+         * Center the map only on the first valid GPS reading.
+         * After that, only the green marker updates.
+         * The map itself does not automatically pan/reload tiles.
          */
 
-        mainMap.setView(
-            [lat, lng],
-            18,
-            {
-                animate: true
-            }
-        );
+        if (!mapInitialized) {
 
-        mapInitialized = true;
+            mainMap.setView(
+                [lat, lng],
+                18,
+                {
+                    animate: false
+                }
+            );
+
+            mapInitialized = true;
+
+        }
+        else {
+
+            let movedMeters = Infinity;
+
+            if (lastMapFollowPosition) {
+
+                movedMeters =
+                    distanceBetweenMeters(
+                        lastMapFollowPosition.lat,
+                        lastMapFollowPosition.lng,
+                        lat,
+                        lng
+                    );
+
+            }
+
+            const markerVisible =
+                mainMap
+                .getBounds()
+                .pad(-0.15)
+                .contains(
+                    latestLatLng
+                );
+
+            if (
+                movedMeters >= 5 ||
+                !markerVisible
+            ) {
+
+                mainMap.panTo(
+                    latestLatLng,
+                    {
+                        animate: true,
+                        duration: 0.35
+                    }
+                );
+
+                lastMapFollowPosition = {
+                    lat,
+                    lng
+                };
+
+            }
+
+        }
 
     }
 
@@ -2931,6 +2993,13 @@ document.getElementById(
 
         editMode =
             !editMode;
+
+        document.getElementById(
+            'deleteSelectedBtn'
+        ).classList.toggle(
+            'show',
+            editMode
+        );
 
 
         const table =
