@@ -159,7 +159,7 @@
                     <th>N (mg/kg)</th>
                     <th>P (mg/kg)</th>
                     <th>K (mg/kg)</th>
-                    <th>Air Temp (°C)</th>
+                    <th>EC</th>
                 </tr>
             </thead>
             <tbody id="recordTableBody"></tbody>
@@ -226,7 +226,7 @@
             const p = parseInt(feed.field5);
             const k = parseInt(feed.field6);
             const ph = parseFloat(feed.field7);
-            const temp = parseFloat(feed.field8);
+            const ec = parseFloat(feed.field8);
 
             const utcTime = new Date(feed.created_at);
             const malaysiaTimeStr = new Intl.DateTimeFormat('en-MY', {
@@ -241,7 +241,7 @@
             currentMarker.bindPopup(`
                 🟢 <b>Location:</b> ${lat.toFixed(5)}, ${lng.toFixed(5)}<br>
                 💧 <b>Moisture:</b> ${moisture.toFixed(1)} %<br>
-                🌡️ <b>Air Temp:</b> ${temp.toFixed(1)} °C<br>
+                ⚡️ <b>EC:</b> ${ec.toFixed(3)} mS/cm<br>
                 🧪 <b>pH:</b> ${ph.toFixed(1)}<br>
                 🧬 <b>N:</b> ${n} mg/kg<br>
                 🧬 <b>P:</b> ${p} mg/kg<br>
@@ -251,7 +251,7 @@
 
             document.getElementById('timestampText').innerText = `🕒 Last update: ${malaysiaTimeStr}`;
 
-            window.currentData = { lat, lng, moisture, ph, n, p, k, temp, malaysiaTimeStr };
+            window.currentData = { lat, lng, moisture, ph, n, p, k, ec, malaysiaTimeStr };
         }
 
         document.getElementById('recordBtn').addEventListener('click', () => {
@@ -268,7 +268,7 @@
                         🔵 <strong>Point ${markerNumber}</strong><br>
                         📍 <b>Location:</b> ${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}<br>
                         💧 <b>Moisture:</b> ${d.moisture.toFixed(1)} %<br>
-                        🌡️ <b>Air Temp:</b> ${d.temp.toFixed(1)} °C<br>
+                        ⚡ <b>EC:</b> ${d.ec.toFixed(3)} mS/cm<br>
                         🧪 <b>pH:</b> ${d.ph.toFixed(1)}<br>
                         🧬 <b>N:</b> ${d.n} mg/kg<br>
                         🧬 <b>P:</b> ${d.p} mg/kg<br>
@@ -288,7 +288,7 @@
                     <td>${d.n}</td>
                     <td>${d.p}</td>
                     <td>${d.k}</td>
-                    <td>${d.temp.toFixed(1)}</td>
+                    <td>${d.ec.toFixed(3)}</td>
                 `;
                 row.style.cursor = "pointer";
                 row.addEventListener("click", () => {
