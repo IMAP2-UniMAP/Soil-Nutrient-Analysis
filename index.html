@@ -2186,20 +2186,19 @@ document.getElementById(
 
 
         /*
-         * Center the map on the first valid
+         * Keep the map centered on the latest valid
          * ThingSpeak GPS reading.
          */
 
-        if (!mapInitialized) {
+        mainMap.setView(
+            [lat, lng],
+            18,
+            {
+                animate: true
+            }
+        );
 
-            mainMap.setView(
-                [lat, lng],
-                18
-            );
-
-            mapInitialized = true;
-
-        }
+        mapInitialized = true;
 
     }
 
