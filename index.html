@@ -1265,6 +1265,20 @@
                     Start Measurement
                 </button>
 
+                <button id="manualExtendBtn"
+                        class="control-btn start-measurement-btn"
+                        disabled>
+                    <i class="fa-solid fa-arrow-down"></i>
+                    Extend
+                </button>
+
+                <button id="manualRetractBtn"
+                        class="control-btn locate-btn"
+                        disabled>
+                    <i class="fa-solid fa-arrow-up"></i>
+                    Retract
+                </button>
+
                 <button id="retractActuatorBtn"
                         class="control-btn retract-actuator-btn"
                         disabled>
@@ -1273,7 +1287,7 @@
                 </button>
 
                 <div class="sampling-hint">
-                    Start Measurement: extend 5.6 s → measure in soil for 10 s → retract 5.7 s → upload saved sample.
+                    Start Measurement runs the full automatic sampling cycle. Extend and Retract move the actuator manually without automatically recording a soil sample.
                 </div>
             </div>
 
@@ -1549,6 +1563,10 @@ const CHANNEL_ID = 2995665;
 const API_KEY = 'GJVNL72R9QETDKHY';
 const FETCH_INTERVAL = 5000;
 
+// If the newest ThingSpeak feed is older than this,
+// the dashboard is considered offline.
+const DATA_OFFLINE_THRESHOLD_MS = 60000; // 60 seconds
+
 /*
  * This is your existing ThingSpeak field mapping:
  *
@@ -1776,6 +1794,11 @@ async function clearCloudRecords() {
 let actuatorCommandBusy = false;
 let lastActuatorStatus = null;
 
+// Automatic recording after a completed actuator measurement cycle.
+let measurementCycleInProgress = false;
+let measurementStartFeedTime = null;
+let automaticRecordBusy = false;
+
 function normalizeActuatorStatus(status) {
     return String(status || 'offline').trim().toLowerCase();
 }
@@ -1786,8 +1809,13 @@ function updateActuatorControlUI(status) {
     const statusText = document.getElementById('actuatorStatusText');
     const startBtn = document.getElementById('startMeasurementBtn');
     const retractBtn = document.getElementById('retractActuatorBtn');
+    const manualExtendBtn = document.getElementById('manualExtendBtn');
+    const manualRetractBtn = document.getElementById('manualRetractBtn');
 
-    if (!statusBox || !statusText || !startBtn || !retractBtn) return;
+    if (
+        !statusBox || !statusText || !startBtn || !retractBtn ||
+        !manualExtendBtn || !manualRetractBtn
+    ) return;
 
     statusBox.classList.remove('ready', 'active', 'warning', 'offline');
 
@@ -1797,12 +1825,18 @@ function updateActuatorControlUI(status) {
         extending: 'Extending',
         measuring: 'Measuring',
         retracting: 'Retracting',
-        uploading: 'Uploading'
+        uploading: 'Uploading',
+        extended: 'Extended',
+        retracted: 'Retracted'
     };
 
     statusText.innerText = labels[normalized] || 'Offline';
 
-    if (normalized === 'ready') {
+    if (
+        normalized === 'ready' ||
+        normalized === 'retracted' ||
+        normalized === 'extended'
+    ) {
         statusBox.classList.add('ready');
     } else if (
         normalized === 'starting' ||
@@ -1818,12 +1852,43 @@ function updateActuatorControlUI(status) {
     }
 
     const controlOnline = normalized !== 'offline';
-    const cycleReady = normalized === 'ready';
+    const actuatorRetracted =
+        normalized === 'retracted' ||
+        normalized === 'ready';
+    const actuatorExtended =
+        normalized === 'extended';
+    const actuatorMoving =
+        normalized === 'extending' ||
+        normalized === 'retracting' ||
+        normalized === 'measuring' ||
+        normalized === 'uploading' ||
+        normalized === 'starting';
 
-    startBtn.disabled = actuatorCommandBusy || !controlOnline || !cycleReady;
+    // Full automatic measurement starts only when probe is retracted.
+    startBtn.disabled =
+        actuatorCommandBusy ||
+        !controlOnline ||
+        !actuatorRetracted ||
+        actuatorMoving;
 
-    // Emergency retract is available whenever the ESP32 control row is reachable.
-    retractBtn.disabled = actuatorCommandBusy || !controlOnline;
+    // Manual Extend is available only when currently retracted.
+    manualExtendBtn.disabled =
+        actuatorCommandBusy ||
+        !controlOnline ||
+        !actuatorRetracted ||
+        actuatorMoving;
+
+    // Manual Retract is available when extended.
+    manualRetractBtn.disabled =
+        actuatorCommandBusy ||
+        !controlOnline ||
+        !actuatorExtended ||
+        actuatorMoving;
+
+    // Emergency retract remains available whenever control is online.
+    retractBtn.disabled =
+        actuatorCommandBusy ||
+        !controlOnline;
 }
 
 async function readActuatorStatus() {
@@ -1852,8 +1917,25 @@ async function readActuatorStatus() {
         }
 
         const status = normalizeActuatorStatus(rows[0].status);
+        const previousStatus = lastActuatorStatus;
+
         lastActuatorStatus = status;
         updateActuatorControlUI(status);
+
+        /*
+         * A completed normal measurement cycle goes through
+         * uploading -> ready. When that transition is seen,
+         * automatically save the newly uploaded ThingSpeak
+         * sample into Recorded Data.
+         */
+        if (
+            measurementCycleInProgress &&
+            (status === 'ready' || status === 'retracted') &&
+            previousStatus !== 'ready' &&
+            previousStatus !== 'retracted'
+        ) {
+            autoRecordCompletedMeasurement();
+        }
     }
     catch (error) {
         console.error('Actuator status error:', error);
@@ -1887,12 +1969,31 @@ async function sendActuatorCommand(command) {
         }
 
         if (command === 'start') {
+            measurementCycleInProgress = true;
+            measurementStartFeedTime =
+                window.currentData?.created_at || null;
+
             showToast(
                 'Measurement command sent to the ESP32.',
                 'success',
                 'Sampling started'
             );
+        } else if (command === 'extend') {
+            showToast(
+                'Manual extend command sent to the ESP32.',
+                'success',
+                'Actuator extending'
+            );
+        } else if (command === 'manual_retract') {
+            showToast(
+                'Manual retract command sent to the ESP32.',
+                'success',
+                'Actuator retracting'
+            );
         } else if (command === 'retract') {
+            measurementCycleInProgress = false;
+            measurementStartFeedTime = null;
+
             showToast(
                 'Emergency retract command sent to the ESP32.',
                 'success',
@@ -1931,6 +2032,17 @@ document.getElementById('startMeasurementBtn')
 
         await sendActuatorCommand('start');
     });
+
+document.getElementById('manualExtendBtn')
+    ?.addEventListener('click', async () => {
+        await sendActuatorCommand('extend');
+    });
+
+document.getElementById('manualRetractBtn')
+    ?.addEventListener('click', async () => {
+        await sendActuatorCommand('manual_retract');
+    });
+
 
 document.getElementById('retractActuatorBtn')
     ?.addEventListener('click', async () => {
@@ -2370,6 +2482,63 @@ function updateLiveCards(data) {
 
 
 /* =========================================================
+   LIVE CONNECTION / DATA FRESHNESS STATUS
+========================================================= */
+
+function updateFreshnessStatus() {
+    const d = window.currentData;
+
+    if (!d || !d.created_at) {
+        setStatusChip(
+            'cloudStatusChip',
+            'cloudStatusText',
+            'offline',
+            'Offline'
+        );
+
+        setStatusChip(
+            'gpsStatusChip',
+            'gpsStatusText',
+            'offline',
+            'Offline'
+        );
+
+        return;
+    }
+
+    const readingTime =
+        new Date(d.created_at).getTime();
+
+    const age =
+        Date.now() - readingTime;
+
+    const dataFresh =
+        Number.isFinite(age) &&
+        age >= 0 &&
+        age <= DATA_OFFLINE_THRESHOLD_MS;
+
+    const gpsValid =
+        Number.isFinite(Number(d.lat)) &&
+        Number.isFinite(Number(d.lng)) &&
+        !(Number(d.lat) === 0 && Number(d.lng) === 0);
+
+    setStatusChip(
+        'cloudStatusChip',
+        'cloudStatusText',
+        dataFresh ? 'online' : 'offline',
+        dataFresh ? 'Online' : 'Offline'
+    );
+
+    setStatusChip(
+        'gpsStatusChip',
+        'gpsStatusText',
+        dataFresh && gpsValid ? 'online' : 'offline',
+        dataFresh && gpsValid ? 'GPS' : 'Offline'
+    );
+}
+
+
+/* =========================================================
    FETCH LATEST THINGSPEAK DATA
 ========================================================= */
 
@@ -2471,24 +2640,7 @@ async function fetchThingSpeakData() {
         window.currentData =
             liveData;
 
-        setStatusChip(
-            'cloudStatusChip',
-            'cloudStatusText',
-            'online',
-            'Online'
-        );
-
-        const gpsValid =
-            Number.isFinite(lat) &&
-            Number.isFinite(lng) &&
-            !(lat === 0 && lng === 0);
-
-        setStatusChip(
-            'gpsStatusChip',
-            'gpsStatusText',
-            gpsValid ? 'online' : 'offline',
-            gpsValid ? 'GPS' : 'Offline'
-        );
+        updateFreshnessStatus();
 
         updateMapSummary();
 
@@ -2593,51 +2745,6 @@ document.getElementById(
             mapInitialized = true;
 
         }
-        else {
-
-            let movedMeters = Infinity;
-
-            if (lastMapFollowPosition) {
-
-                movedMeters =
-                    distanceBetweenMeters(
-                        lastMapFollowPosition.lat,
-                        lastMapFollowPosition.lng,
-                        lat,
-                        lng
-                    );
-
-            }
-
-            const markerVisible =
-                mainMap
-                .getBounds()
-                .pad(-0.15)
-                .contains(
-                    latestLatLng
-                );
-
-            if (
-                movedMeters >= 5 ||
-                !markerVisible
-            ) {
-
-                mainMap.panTo(
-                    latestLatLng,
-                    {
-                        animate: true,
-                        duration: 0.35
-                    }
-                );
-
-                lastMapFollowPosition = {
-                    lat,
-                    lng
-                };
-
-            }
-
-        }
 
     }
 
@@ -2653,19 +2760,10 @@ document.getElementById(
         ).innerText =
             'Connection error';
 
-        setStatusChip(
-            'cloudStatusChip',
-            'cloudStatusText',
-            'offline',
-            'Offline'
-        );
-
-        setStatusChip(
-            'gpsStatusChip',
-            'gpsStatusText',
-            'offline',
-            'Offline'
-        );
+        // Do not declare Offline because of one temporary
+        // failed HTTP request. Status is based on the age of
+        // the latest successful ThingSpeak reading.
+        updateFreshnessStatus();
 
     }
 }
@@ -2692,115 +2790,207 @@ function saveRecordedData() {
    RECORD CURRENT POINT
 ========================================================= */
 
-document.getElementById(
-    'recordBtn'
-).addEventListener(
-    'click',
-    async () => {
+async function saveCurrentPointToRecordedData(
+    source = 'manual'
+) {
+    const data =
+        window.currentData;
 
-        const data =
-            window.currentData;
-
-
-        if (!data) {
-
+    if (!data) {
+        if (source === 'manual') {
             showToast(
                 'No current soil data is available yet.',
                 'error',
                 'Cannot record point'
             );
-
-            return;
-
         }
+        return false;
+    }
 
-
-        /*
-         * Create a permanent local record.
-         */
-
-        const record = {
-
-            id:
-                Date.now(),
-
-            time:
-                data.malaysiaTimeStr,
-
-            created_at:
-                data.created_at,
-
-            lat:
-                data.lat,
-
-            lng:
-                data.lng,
-
-            moisture:
-                data.moisture,
-
-            n:
-                data.n,
-
-            p:
-                data.p,
-
-            k:
-                data.k,
-
-            ph:
-                data.ph,
-
-            ec:
-                data.ec
-
-        };
-
-
-        recordedData.push(
-            record
+    /*
+     * Avoid an accidental duplicate of the exact same
+     * ThingSpeak sample.
+     */
+    const duplicate =
+        recordedData.some(
+            record =>
+                record.created_at === data.created_at &&
+                Number(record.lat) === Number(data.lat) &&
+                Number(record.lng) === Number(data.lng)
         );
 
-
-        saveRecordedData();
-
-        if (CLOUD_STORAGE_ENABLED) {
-            try {
-                await insertRecordToCloud(record);
-            }
-            catch (error) {
-                console.error('Cloud insert error:', error);
-
-                showToast(
-                    'Point saved locally, but cloud sync failed.',
-                    'error',
-                    'Cloud sync warning'
-                );
-            }
+    if (duplicate) {
+        if (source === 'manual') {
+            showToast(
+                'This ThingSpeak sample is already recorded.',
+                'error',
+                'Duplicate point'
+            );
         }
+        return false;
+    }
 
+    const record = {
+        id: Date.now(),
+        time: data.malaysiaTimeStr,
+        created_at: data.created_at,
+        lat: data.lat,
+        lng: data.lng,
+        moisture: data.moisture,
+        n: data.n,
+        p: data.p,
+        k: data.k,
+        ph: data.ph,
+        ec: data.ec
+    };
 
-        /*
-         * Update maps, table and chart.
-         */
+    recordedData.push(
+        record
+    );
 
-        renderMainRecordedMarkers();
+    saveRecordedData();
 
-        renderRecordedTable();
+    if (CLOUD_STORAGE_ENABLED) {
+        try {
+            await insertRecordToCloud(
+                record
+            );
+        }
+        catch (error) {
+            console.error(
+                'Cloud insert error:',
+                error
+            );
 
-        renderRecordedPageMap();
+            showToast(
+                'Point saved locally, but cloud sync failed.',
+                'error',
+                'Cloud sync warning'
+            );
+        }
+    }
 
-        updateNPKChart();
+    renderMainRecordedMarkers();
+    renderRecordedTable();
+    renderRecordedPageMap();
+    updateNPKChart();
 
-
+    if (source === 'automatic') {
+        showToast(
+            `Point ${recordedData.length} automatically recorded after soil measurement.`,
+            'success',
+            'Measurement recorded'
+        );
+    }
+    else {
         showToast(
             `Point ${recordedData.length} recorded successfully.`,
             'success',
             'Soil point recorded'
         );
+    }
 
+    return true;
+}
+
+
+/*
+ * Manual Record Point button remains available.
+ */
+document.getElementById(
+    'recordBtn'
+).addEventListener(
+    'click',
+    async () => {
+        await saveCurrentPointToRecordedData(
+            'manual'
+        );
     }
 );
+
+
+/*
+ * After the actuator finishes its automatic cycle, wait for a
+ * NEW ThingSpeak feed and then save that measurement
+ * automatically into Recorded Data.
+ *
+ * This is important because actuator status may change to
+ * "ready" slightly before the webpage's normal 5-second
+ * ThingSpeak polling sees the newly uploaded sample.
+ */
+async function autoRecordCompletedMeasurement() {
+    if (
+        automaticRecordBusy ||
+        !measurementCycleInProgress
+    ) {
+        return;
+    }
+
+    automaticRecordBusy = true;
+
+    try {
+        const oldFeedTime =
+            measurementStartFeedTime
+                ? new Date(
+                    measurementStartFeedTime
+                  ).getTime()
+                : 0;
+
+        const maxAttempts = 12;
+        const waitBetweenAttempts = 1500;
+
+        for (
+            let attempt = 0;
+            attempt < maxAttempts;
+            attempt++
+        ) {
+            await fetchThingSpeakData();
+
+            const latest =
+                window.currentData;
+
+            const latestFeedTime =
+                latest?.created_at
+                    ? new Date(
+                        latest.created_at
+                      ).getTime()
+                    : 0;
+
+            if (
+                latest &&
+                latestFeedTime > oldFeedTime
+            ) {
+                const saved =
+                    await saveCurrentPointToRecordedData(
+                        'automatic'
+                    );
+
+                if (saved) {
+                    measurementCycleInProgress = false;
+                    measurementStartFeedTime = null;
+                    return;
+                }
+            }
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        waitBetweenAttempts
+                    )
+            );
+        }
+
+        showToast(
+            'The actuator cycle finished, but a new ThingSpeak sample was not detected yet. You can still use Record Point manually.',
+            'error',
+            'Automatic record delayed'
+        );
+    }
+    finally {
+        automaticRecordBusy = false;
+    }
+}
 
 
 /* =========================================================
@@ -3905,6 +4095,16 @@ fetchThingSpeakData();
 setInterval(
     fetchThingSpeakData,
     FETCH_INTERVAL
+);
+
+// Re-check reading freshness every second.
+// Example:
+// latest feed age <= 60 s -> Online
+// latest feed age > 60 s  -> Offline
+// When a fresh ThingSpeak feed arrives, it returns to Online.
+setInterval(
+    updateFreshnessStatus,
+    1000
 );
 
 
