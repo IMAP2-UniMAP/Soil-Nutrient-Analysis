@@ -2021,9 +2021,13 @@ async function sendActuatorCommand(command) {
 
 document.getElementById('startMeasurementBtn')
     ?.addEventListener('click', async () => {
-        if (lastActuatorStatus !== 'ready') {
+        const canStart =
+            lastActuatorStatus === 'ready' ||
+            lastActuatorStatus === 'retracted';
+
+        if (!canStart) {
             showToast(
-                'Wait until the actuator status returns to Ready.',
+                'The actuator must be retracted before starting a measurement.',
                 'error',
                 'Measurement not ready'
             );
