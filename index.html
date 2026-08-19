@@ -921,6 +921,170 @@
             gap: 6px;
         }
 
+
+        /* =====================================================
+           SOIL SAMPLING / ACTUATOR CONTROL
+        ===================================================== */
+
+        .sampling-control {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .sampling-control-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        .sampling-control-title i {
+            color: var(--green);
+        }
+
+        .actuator-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 115px;
+            padding: 8px 11px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #f8fafc;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: capitalize;
+        }
+
+        .actuator-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .actuator-status.ready {
+            background: #ecfdf3;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        .actuator-status.ready .actuator-status-dot {
+            background: #22c55e;
+        }
+
+        .actuator-status.active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .actuator-status.active .actuator-status-dot {
+            background: #3b82f6;
+            animation: actuatorPulse 1s infinite;
+        }
+
+        .actuator-status.warning {
+            background: #fff7ed;
+            border-color: #fed7aa;
+            color: #9a3412;
+        }
+
+        .actuator-status.warning .actuator-status-dot {
+            background: #f97316;
+            animation: actuatorPulse 1s infinite;
+        }
+
+        .actuator-status.offline {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .actuator-status.offline .actuator-status-dot {
+            background: #ef4444;
+        }
+
+        @keyframes actuatorPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .35; }
+        }
+
+        .sampling-spacer {
+            flex: 1;
+        }
+
+        .control-btn {
+            border: none;
+            min-height: 38px;
+            padding: 9px 14px;
+            border-radius: 11px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15,23,42,0.10);
+        }
+
+        .control-btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .start-measurement-btn {
+            background: var(--green);
+            color: white;
+        }
+
+        .start-measurement-btn:hover:not(:disabled) {
+            background: var(--green-dark);
+        }
+
+        .retract-actuator-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .sampling-hint {
+            width: 100%;
+            margin-top: -2px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .sampling-control {
+                align-items: stretch;
+            }
+
+            .sampling-spacer {
+                display: none;
+            }
+
+            .control-btn {
+                flex: 1;
+            }
+
+            .actuator-status {
+                min-width: 100px;
+            }
+        }
+
     </style>
 </head>
 
@@ -1078,6 +1242,39 @@
                     Fit Recorded Track
                 </button>
 
+            </div>
+
+
+            <div class="sampling-control">
+                <div class="sampling-control-title">
+                    <i class="fa-solid fa-arrows-up-down"></i>
+                    Soil Sampling Control
+                </div>
+
+                <div id="actuatorStatus" class="actuator-status offline">
+                    <span class="actuator-status-dot"></span>
+                    <span id="actuatorStatusText">Checking...</span>
+                </div>
+
+                <div class="sampling-spacer"></div>
+
+                <button id="startMeasurementBtn"
+                        class="control-btn start-measurement-btn"
+                        disabled>
+                    <i class="fa-solid fa-play"></i>
+                    Start Measurement
+                </button>
+
+                <button id="retractActuatorBtn"
+                        class="control-btn retract-actuator-btn"
+                        disabled>
+                    <i class="fa-solid fa-arrow-up"></i>
+                    Emergency Retract
+                </button>
+
+                <div class="sampling-hint">
+                    Start Measurement: extend 5.6 s → measure in soil for 10 s → retract 5.7 s → upload saved sample.
+                </div>
             </div>
 
         </div>
@@ -1402,6 +1599,10 @@ const SUPABASE_URL = 'https://smrpeyhqxlnarblglkld.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_JDb6-Rg6Z-Y-jBN_d8_5EA_WuNdOJfZ';
 const SUPABASE_TABLE = 'soilytic_records';
 
+const SUPABASE_CONTROL_TABLE = 'soilytic_control';
+const SUPABASE_CONTROL_ROW_ID = 1;
+const CONTROL_STATUS_INTERVAL = 1500;
+
 const CLOUD_STORAGE_ENABLED =
     SUPABASE_URL.trim() !== '' &&
     SUPABASE_ANON_KEY.trim() !== '';
@@ -1565,6 +1766,182 @@ async function clearCloudRecords() {
         throw new Error(`Cloud clear failed: ${response.status}`);
     }
 }
+
+
+
+/* =========================================================
+   WEB ACTUATOR CONTROL
+========================================================= */
+
+let actuatorCommandBusy = false;
+let lastActuatorStatus = null;
+
+function normalizeActuatorStatus(status) {
+    return String(status || 'offline').trim().toLowerCase();
+}
+
+function updateActuatorControlUI(status) {
+    const normalized = normalizeActuatorStatus(status);
+    const statusBox = document.getElementById('actuatorStatus');
+    const statusText = document.getElementById('actuatorStatusText');
+    const startBtn = document.getElementById('startMeasurementBtn');
+    const retractBtn = document.getElementById('retractActuatorBtn');
+
+    if (!statusBox || !statusText || !startBtn || !retractBtn) return;
+
+    statusBox.classList.remove('ready', 'active', 'warning', 'offline');
+
+    const labels = {
+        ready: 'Ready',
+        starting: 'Starting',
+        extending: 'Extending',
+        measuring: 'Measuring',
+        retracting: 'Retracting',
+        uploading: 'Uploading'
+    };
+
+    statusText.innerText = labels[normalized] || 'Offline';
+
+    if (normalized === 'ready') {
+        statusBox.classList.add('ready');
+    } else if (
+        normalized === 'starting' ||
+        normalized === 'extending' ||
+        normalized === 'measuring' ||
+        normalized === 'uploading'
+    ) {
+        statusBox.classList.add('active');
+    } else if (normalized === 'retracting') {
+        statusBox.classList.add('warning');
+    } else {
+        statusBox.classList.add('offline');
+    }
+
+    const controlOnline = normalized !== 'offline';
+    const cycleReady = normalized === 'ready';
+
+    startBtn.disabled = actuatorCommandBusy || !controlOnline || !cycleReady;
+
+    // Emergency retract is available whenever the ESP32 control row is reachable.
+    retractBtn.disabled = actuatorCommandBusy || !controlOnline;
+}
+
+async function readActuatorStatus() {
+    if (!CLOUD_STORAGE_ENABLED) {
+        updateActuatorControlUI('offline');
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_CONTROL_TABLE}?id=eq.${SUPABASE_CONTROL_ROW_ID}&select=command,status`,
+            {
+                headers: supabaseHeaders(),
+                cache: 'no-store'
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Control status read failed: ${response.status}`);
+        }
+
+        const rows = await response.json();
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+            throw new Error('Control row id=1 was not found');
+        }
+
+        const status = normalizeActuatorStatus(rows[0].status);
+        lastActuatorStatus = status;
+        updateActuatorControlUI(status);
+    }
+    catch (error) {
+        console.error('Actuator status error:', error);
+        lastActuatorStatus = 'offline';
+        updateActuatorControlUI('offline');
+    }
+}
+
+async function sendActuatorCommand(command) {
+    if (!CLOUD_STORAGE_ENABLED || actuatorCommandBusy) return;
+
+    actuatorCommandBusy = true;
+    updateActuatorControlUI(lastActuatorStatus || 'offline');
+
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_CONTROL_TABLE}?id=eq.${SUPABASE_CONTROL_ROW_ID}`,
+            {
+                method: 'PATCH',
+                headers: supabaseHeaders({
+                    'Prefer': 'return=minimal'
+                }),
+                body: JSON.stringify({
+                    command: command
+                })
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Control command failed: ${response.status}`);
+        }
+
+        if (command === 'start') {
+            showToast(
+                'Measurement command sent to the ESP32.',
+                'success',
+                'Sampling started'
+            );
+        } else if (command === 'retract') {
+            showToast(
+                'Emergency retract command sent to the ESP32.',
+                'success',
+                'Retract requested'
+            );
+        }
+
+        // ESP32 polls the command about every 1.5 seconds.
+        setTimeout(readActuatorStatus, 1700);
+    }
+    catch (error) {
+        console.error('Actuator command error:', error);
+
+        showToast(
+            'Unable to send the actuator command. Check Wi-Fi, Supabase and RLS permissions.',
+            'error',
+            'Actuator control unavailable'
+        );
+    }
+    finally {
+        actuatorCommandBusy = false;
+        updateActuatorControlUI(lastActuatorStatus || 'offline');
+    }
+}
+
+document.getElementById('startMeasurementBtn')
+    ?.addEventListener('click', async () => {
+        if (lastActuatorStatus !== 'ready') {
+            showToast(
+                'Wait until the actuator status returns to Ready.',
+                'error',
+                'Measurement not ready'
+            );
+            return;
+        }
+
+        await sendActuatorCommand('start');
+    });
+
+document.getElementById('retractActuatorBtn')
+    ?.addEventListener('click', async () => {
+        const confirmed = confirm(
+            'Emergency retract the soil sensor now?'
+        );
+
+        if (!confirmed) return;
+
+        await sendActuatorCommand('retract');
+    });
 
 
 /* =========================================================
@@ -3545,6 +3922,11 @@ setTimeout(
     },
     500
 );
+
+
+// Keep actuator state synchronized with the ESP32/Supabase control row.
+readActuatorStatus();
+setInterval(readActuatorStatus, CONTROL_STATUS_INTERVAL);
 
 </script>
 
