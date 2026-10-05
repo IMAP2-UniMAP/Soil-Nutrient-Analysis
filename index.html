@@ -1183,12 +1183,6 @@
 
     <section id="dashboardPage" class="page active">
 
-        <!-- Timestamp -->
-
-        
-        </div>
-
-
         <!-- FIELD MAP -->
 
         <div class="panel">
@@ -1561,7 +1555,7 @@
 
 const CHANNEL_ID = 2995665;
 const API_KEY = 'GJVNL72R9QETDKHY';
-const FETCH_INTERVAL = 5000;
+const FETCH_INTERVAL = 10000; // 10 s: matches sensor/dashboard refresh cadence
 
 // If the newest ThingSpeak feed is older than this,
 // the dashboard is considered offline.
@@ -1619,7 +1613,7 @@ const SUPABASE_TABLE = 'soilytic_records';
 
 const SUPABASE_CONTROL_TABLE = 'soilytic_control';
 const SUPABASE_CONTROL_ROW_ID = 1;
-const CONTROL_STATUS_INTERVAL = 1500;
+const CONTROL_STATUS_INTERVAL = 5000; // Reduced idle network polling
 
 const CLOUD_STORAGE_ENABLED =
     SUPABASE_URL.trim() !== '' &&
@@ -2178,6 +2172,7 @@ let mapInitialized = false;
 ========================================================= */
 
 let recordedPageMarkers = [];
+let recordedMapDirty = true;
 
 let recordedPagePolyline =
     L.polyline(
@@ -2398,7 +2393,9 @@ document.querySelectorAll(
                             'recordedPage'
                         ) {
                             recordedMap.invalidateSize();
-                            renderRecordedPageMap();
+                            if (recordedMapDirty) {
+                                renderRecordedPageMap();
+                            }
                         }
 
                         if (
@@ -2666,25 +2663,19 @@ document.getElementById(
            UPDATE CURRENT GREEN MARKER
         ================================================= */
 
-        if (currentMarker) {
-            mainMap.removeLayer(
-                currentMarker
-            );
+        // Create the live marker only once. On later updates, move the
+        // existing marker instead of deleting/recreating a Leaflet layer.
+        if (!currentMarker) {
+            currentMarker = L.marker(
+                [lat, lng],
+                { icon: greenIcon }
+            ).addTo(mainMap);
+        } else {
+            currentMarker.setLatLng([lat, lng]);
         }
 
 
-        currentMarker =
-            L.marker(
-                [lat, lng],
-                {
-                    icon: greenIcon
-                }
-            ).addTo(
-                mainMap
-            );
-
-
-        currentMarker.bindPopup(`
+        currentMarker.setPopupContent(`
 
             <strong>SOILYTIC - Latest Location</strong>
             <br><br>
@@ -2778,6 +2769,9 @@ document.getElementById(
 ========================================================= */
 
 function saveRecordedData() {
+
+    // Recorded-data map only needs rebuilding after the dataset changes.
+    recordedMapDirty = true;
 
     localStorage.setItem(
         STORAGE_KEY,
@@ -2876,7 +2870,6 @@ async function saveCurrentPointToRecordedData(
 
     renderMainRecordedMarkers();
     renderRecordedTable();
-    renderRecordedPageMap();
     updateNPKChart();
 
     if (source === 'automatic') {
@@ -3224,6 +3217,8 @@ function renderRecordedPageMap() {
     recordedPagePolyline.setLatLngs(
         coordinates
     );
+
+    recordedMapDirty = false;
 
 
     /*
@@ -3710,8 +3705,6 @@ document.getElementById(
 
         renderMainRecordedMarkers();
 
-        renderRecordedPageMap();
-
         updateNPKChart();
 
 
@@ -3782,8 +3775,6 @@ document.getElementById(
         renderRecordedTable();
 
         renderMainRecordedMarkers();
-
-        renderRecordedPageMap();
 
         updateNPKChart();
 
@@ -4082,7 +4073,7 @@ async function initialiseRecordedData() {
 
     renderRecordedTable();
     renderMainRecordedMarkers();
-    renderRecordedPageMap();
+    recordedMapDirty = true;
     updateNPKChart();
     updateMapSummary();
 }
@@ -4120,8 +4111,6 @@ setTimeout(
     () => {
 
         mainMap.invalidateSize();
-
-        recordedMap.invalidateSize();
 
     },
     500
