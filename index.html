@@ -1268,6 +1268,13 @@
                     Retract
                 </button>
 
+                <button id="waterSprayBtn"
+                        class="control-btn locate-btn"
+                        disabled>
+                    <i class="fa-solid fa-shower"></i>
+                    Water Spray
+                </button>
+
                 <button id="retractActuatorBtn"
                         class="control-btn retract-actuator-btn"
                         disabled>
@@ -1800,10 +1807,11 @@ function updateActuatorControlUI(status) {
     const retractBtn = document.getElementById('retractActuatorBtn');
     const manualExtendBtn = document.getElementById('manualExtendBtn');
     const manualRetractBtn = document.getElementById('manualRetractBtn');
+    const waterSprayBtn = document.getElementById('waterSprayBtn');
 
     if (
         !statusBox || !statusText || !startBtn || !retractBtn ||
-        !manualExtendBtn || !manualRetractBtn
+        !manualExtendBtn || !manualRetractBtn || !waterSprayBtn
     ) return;
 
     statusBox.classList.remove('ready', 'active', 'warning', 'offline');
@@ -1859,6 +1867,7 @@ function updateActuatorControlUI(status) {
     // Manual controls do not depend on online/offline status.
     manualExtendBtn.disabled = actuatorCommandBusy;
     manualRetractBtn.disabled = actuatorCommandBusy;
+    waterSprayBtn.disabled = actuatorCommandBusy;
     retractBtn.disabled = actuatorCommandBusy;
 }
 
@@ -1960,6 +1969,12 @@ async function sendActuatorCommand(command) {
                 'Manual retract command sent to the ESP32.',
                 'success',
                 'Actuator retracting'
+            );
+        } else if (command === 'spray') {
+            showToast(
+                'Water spray command sent to the ESP32.',
+                'success',
+                'Water spray activated'
             );
         } else if (command === 'retract') {
             measurementCycleInProgress = false;
@@ -4087,6 +4102,11 @@ setTimeout(
 // Keep actuator state synchronized with the ESP32/Supabase control row.
 readActuatorStatus();
 setInterval(readActuatorStatus, CONTROL_STATUS_INTERVAL);
+
+
+document.getElementById('waterSprayBtn').addEventListener('click', () => {
+    sendActuatorCommand('spray');
+});
 
 </script>
 
