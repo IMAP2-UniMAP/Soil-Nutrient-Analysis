@@ -1157,11 +1157,6 @@
         <div class="topbar-spacer"></div>
 
         <div class="header-status-group">
-            <div id="cloudStatusChip" class="status-chip warning">
-                <span class="status-light"></span>
-                <span id="cloudStatusText">Connecting</span>
-            </div>
-
             <div id="gpsStatusChip" class="status-chip warning">
                 <span class="status-light"></span>
                 <span id="gpsStatusText">GPS</span>
@@ -1845,44 +1840,14 @@ function updateActuatorControlUI(status) {
         statusBox.classList.add('offline');
     }
 
-    const controlOnline = normalized !== 'offline';
-    const actuatorRetracted =
-        normalized === 'retracted' ||
-        normalized === 'ready';
-    const actuatorExtended =
-        normalized === 'extended';
-    const actuatorMoving =
-        normalized === 'extending' ||
-        normalized === 'retracting' ||
-        normalized === 'measuring' ||
-        normalized === 'uploading' ||
-        normalized === 'starting';
-
-    // Full automatic measurement starts only when probe is retracted.
-    startBtn.disabled =
-        actuatorCommandBusy ||
-        !controlOnline ||
-        !actuatorRetracted ||
-        actuatorMoving;
-
-    // Manual Extend is available only when currently retracted.
-    manualExtendBtn.disabled =
-        actuatorCommandBusy ||
-        !controlOnline ||
-        !actuatorRetracted ||
-        actuatorMoving;
-
-    // Manual Retract is available when extended.
-    manualRetractBtn.disabled =
-        actuatorCommandBusy ||
-        !controlOnline ||
-        !actuatorExtended ||
-        actuatorMoving;
-
-    // Emergency retract remains available whenever control is online.
-    retractBtn.disabled =
-        actuatorCommandBusy ||
-        !controlOnline;
+    // Actuator controls are independent of the ThingSpeak/online indicator.
+    // The buttons remain available even when the last reported actuator
+    // status is offline or unavailable. Only a command currently being
+    // sent temporarily disables the buttons to prevent duplicate clicks.
+    startBtn.disabled = actuatorCommandBusy;
+    manualExtendBtn.disabled = actuatorCommandBusy;
+    manualRetractBtn.disabled = actuatorCommandBusy;
+    retractBtn.disabled = actuatorCommandBusy;
 }
 
 async function readActuatorStatus() {
@@ -2490,12 +2455,7 @@ function updateFreshnessStatus() {
     const d = window.currentData;
 
     if (!d || !d.created_at) {
-        setStatusChip(
-            'cloudStatusChip',
-            'cloudStatusText',
-            'offline',
-            'Offline'
-        );
+    // Cloud Online/Offline indicator removed; ThingSpeak still updates live data.
 
         setStatusChip(
             'gpsStatusChip',
@@ -2523,12 +2483,7 @@ function updateFreshnessStatus() {
         Number.isFinite(Number(d.lng)) &&
         !(Number(d.lat) === 0 && Number(d.lng) === 0);
 
-    setStatusChip(
-        'cloudStatusChip',
-        'cloudStatusText',
-        dataFresh ? 'online' : 'offline',
-        dataFresh ? 'Online' : 'Offline'
-    );
+    // Cloud Online/Offline indicator removed; ThingSpeak still updates live data.
 
     setStatusChip(
         'gpsStatusChip',
