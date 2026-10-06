@@ -1844,7 +1844,19 @@ function updateActuatorControlUI(status) {
     // The buttons remain available even when the last reported actuator
     // status is offline or unavailable. Only a command currently being
     // sent temporarily disables the buttons to prevent duplicate clicks.
-    startBtn.disabled = actuatorCommandBusy;
+    // Manual Extend/Retract controls stay available even when
+    // SOILYTIC reports the actuator/system as Offline.
+    const actuatorRetracted =
+        normalized === 'retracted' || normalized === 'ready';
+    const actuatorMoving =
+        ['starting','extending','measuring','retracting','uploading'].includes(normalized);
+
+    // Keep automatic Start Measurement state-aware when status is known.
+    startBtn.disabled =
+        actuatorCommandBusy ||
+        (normalized !== 'offline' && (!actuatorRetracted || actuatorMoving));
+
+    // Manual controls do not depend on online/offline status.
     manualExtendBtn.disabled = actuatorCommandBusy;
     manualRetractBtn.disabled = actuatorCommandBusy;
     retractBtn.disabled = actuatorCommandBusy;
